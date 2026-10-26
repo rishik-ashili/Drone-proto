@@ -6,6 +6,9 @@ of a mission without needing a browser or screen recorder.
 from __future__ import annotations
 
 import math
+import os
+import shutil
+import subprocess
 
 import cv2
 import numpy as np
@@ -17,6 +20,7 @@ class VideoComposer:
     def __init__(self, runner, path: str, fps: int = 20, size: tuple[int, int] = (1280, 720)):
         self.r = runner
         self.W, self.H = size
+        self.path = path
         self.writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, size)
         w = runner.world
         self.map_px = self.H - 80
@@ -93,3 +97,10 @@ class VideoComposer:
 
     def close(self) -> None:
         self.writer.release()
+        # OpenCV writes MPEG-4 Part 2; re-encode to H.264 (plays everywhere) if ffmpeg is installed
+        if shutil.which("ffmpeg"):
+            tmp = self.path + ".h264.mp4"
+            r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", self.path, "-c:v", "libx264",
+                                "-pix_fmt", "yuv420p", "-crf", "23", "-movflags", "+faststart", tmp])
+            if r.returncode == 0:
+                os.replace(tmp, self.path)
