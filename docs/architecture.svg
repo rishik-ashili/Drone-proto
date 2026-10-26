@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4a5a6a"/>
+    </marker>
+    <style>
+      .box{fill:#ffffff;stroke:#c6d1dc;stroke-width:1.2}
+      .comp{fill:#eef6fd;stroke:#7fb8e6;stroke-width:1.2}
+      .px4{fill:#fff4e8;stroke:#f0a85c;stroke-width:1.2}
+      .gnd{fill:#eefaf3;stroke:#6fcf97;stroke-width:1.2}
+      .t{fill:#1d2733;font-weight:600}
+      .s{fill:#4a5a6a;font-size:11.5px}
+      .h{fill:#1d2733;font-size:12px;font-weight:700;letter-spacing:.6px}
+      .l{stroke:#4a5a6a;stroke-width:1.4;fill:none;marker-end:url(#a)}
+      .d{stroke:#4a5a6a;stroke-width:1.2;fill:none;stroke-dasharray:5 4;marker-end:url(#a)}
+    </style>
+  </defs>
+  <rect width="960" height="430" fill="#f7f9fb"/>
+
+  <rect x="20" y="20" width="620" height="300" rx="12" fill="#e3f0fb" opacity=".45"/>
+  <text x="34" y="42" class="h">COMPANION COMPUTER  (laptop / Raspberry Pi → Jetson Orin)</text>
+  <rect x="660" y="20" width="280" height="300" rx="12" fill="#fdebd6" opacity=".55"/>
+  <text x="674" y="42" class="h">FLIGHT CONTROLLER  (Pixhawk 6C, PX4)</text>
+
+  <rect x="36" y="62" width="130" height="64" rx="8" class="box"/>
+  <text x="50" y="88" class="t">Downward camera</text>
+  <text x="50" y="106" class="s">sim: rendered arena</text>
+
+  <rect x="196" y="62" width="180" height="64" rx="8" class="comp"/>
+  <text x="210" y="86" class="t">L2 cv_node</text>
+  <text x="210" y="103" class="s">YOLOv8n (ONNX) + ArUco</text>
+  <text x="210" y="118" class="s">temporal filter</text>
+
+  <rect x="406" y="62" width="220" height="64" rx="8" class="comp"/>
+  <text x="420" y="86" class="t">L2 landmark_localizer</text>
+  <text x="420" y="103" class="s">pixel + altitude + intrinsics → m</text>
+  <text x="420" y="118" class="s">map association → position fix</text>
+
+  <rect x="36" y="160" width="250" height="78" rx="8" class="comp"/>
+  <text x="50" y="184" class="t">L3 mission_state_machine</text>
+  <text x="50" y="201" class="s">takeoff · goto · search · align · next</text>
+  <text x="50" y="216" class="s">return-to-start · precision land</text>
+  <text x="50" y="231" class="s">+ waypoints, local planner, geofence</text>
+
+  <rect x="316" y="160" width="160" height="78" rx="8" class="comp"/>
+  <text x="330" y="184" class="t">L5 health_monitor</text>
+  <text x="330" y="201" class="s">battery · link · camera</text>
+  <text x="330" y="216" class="s">position quality</text>
+  <text x="330" y="231" class="s">fault → hold → land</text>
+
+  <rect x="496" y="160" width="134" height="78" rx="8" class="comp"/>
+  <text x="510" y="184" class="t">L4 px4_interface</text>
+  <text x="510" y="201" class="s">MAVSDK Offboard</text>
+  <text x="510" y="216" class="s">ROS 2 + uXRCE-DDS</text>
+  <text x="510" y="231" class="s">on the Orin</text>
+
+  <rect x="36" y="262" width="590" height="44" rx="8" class="box"/>
+  <text x="50" y="289" class="s"><tspan class="t">Forward depth sensor</tspan>  (stereo depth stand-in) → local planner avoids pillars</text>
+
+  <rect x="676" y="62" width="250" height="84" rx="8" class="px4"/>
+  <text x="690" y="86" class="t">L1 EKF2 (no GNSS)</text>
+  <text x="690" y="103" class="s">IMU + optical flow + rangefinder</text>
+  <text x="690" y="118" class="s">+ external vision = landmark fixes</text>
+  <text x="690" y="133" class="s">innovation gate rejects false positives</text>
+
+  <rect x="676" y="170" width="250" height="68" rx="8" class="px4"/>
+  <text x="690" y="194" class="t">L1 position / attitude control</text>
+  <text x="690" y="211" class="s">offboard-loss + battery failsafes</text>
+  <text x="690" y="226" class="s">→ motors</text>
+
+  <rect x="20" y="342" width="920" height="70" rx="12" class="gnd"/>
+  <text x="34" y="366" class="h">L6 TOOLING  (development laptop)</text>
+  <text x="34" y="386" class="s">Dashboard (3D twin, camera, failure injection) · JSONL logs → reports &amp; replay · benchmark vs. exit criteria</text>
+  <text x="34" y="403" class="s">Synthetic dataset → YOLO training → ONNX / TensorRT · PX4 SITL + Gazebo · QGroundControl</text>
+
+  <path d="M166,94 H190" class="l"/>
+  <path d="M376,94 H400" class="l"/>
+  <path d="M626,94 H670" class="l"/>
+  <text x="634" y="86" class="s" font-size="10.5">fixes</text>
+  <path d="M516,126 C516,145 200,140 170,156" class="l"/>
+  <path d="M286,199 H310" class="l"/>
+  <path d="M476,199 H490" class="l"/>
+  <path d="M626,204 H670" class="l"/>
+  <text x="630" y="196" class="s" font-size="10.5">setpts</text>
+  <path d="M800,146 V164" class="l"/>
+  <path d="M676,128 C600,150 600,150 562,156" class="d"/>
+  <text x="560" y="148" class="s" font-size="10.5">telemetry</text>
+  <path d="M330,262 C300,250 260,250 250,244" class="l"/>
+</svg>

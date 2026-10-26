@@ -1,0 +1,6 @@
+.venv
+datasets
+runs
+logs
+*.mp4
+.git

@@ -1,0 +1,14 @@
+# Small arena matching the Section 9 example mission of the plan.
+name: plan_arena
+bounds: {x_min: -3.0, x_max: 6.0, y_min: -3.0, y_max: 6.0}
+texture_res_m: 0.008
+surface: mat
+grid_m: 1.0
+seed: 3
+landmarks:
+  - {name: home_pad, type: helipad,      x: 0.0, y: 0.0, size: 0.6}
+  - {name: pad_red,  type: pad_red,      x: 3.0, y: 0.0, size: 0.5}
+  - {name: tag_07,   type: aruco, id: 7, x: 3.0, y: 3.0, size: 0.4, yaw_deg: 0}
+  - {name: pad_blue, type: pad_blue,     x: 0.0, y: 3.0, size: 0.5}
+distractors: 6
+obstacles: []

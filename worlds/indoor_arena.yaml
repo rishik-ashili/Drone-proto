@@ -1,0 +1,29 @@
+# Indoor demo arena, 20 m x 20 m, local NED frame (x north, y east), metres
+# from the takeoff point. The floor texture is generated procedurally from
+# this file, so the simulated camera sees exactly these landmarks.
+name: indoor_arena
+bounds: {x_min: -4.0, x_max: 16.0, y_min: -6.0, y_max: 14.0}
+texture_res_m: 0.01
+surface: concrete       # concrete | grass | mat
+grid_m: 2.0             # painted floor grid used to measure reach error
+seed: 7
+
+# type: helipad | pad_red | pad_blue | cross_yellow  -> detected by YOLO
+#       aruco                                     -> detected by OpenCV ArUco (and YOLO as 'aruco_tag')
+landmarks:
+  - {name: home_pad, type: helipad,      x: 0.0,  y: 0.0,  size: 1.2}
+  - {name: pad_red,  type: pad_red,      x: 9.0,  y: 0.5,  size: 0.9}
+  - {name: tag_07,   type: aruco, id: 7, x: 9.5,  y: 9.0,  size: 0.7, yaw_deg: 30}
+  - {name: pad_blue, type: pad_blue,     x: 1.0,  y: 9.5,  size: 0.9}
+  - {name: cross_c,  type: cross_yellow, x: 5.0,  y: 4.5,  size: 0.9}
+  - {name: tag_03,   type: aruco, id: 3, x: 13.0, y: 4.0,  size: 0.7, yaw_deg: -15}
+  - {name: tag_11,   type: aruco, id: 11, x: 4.5, y: 12.0, size: 0.7, yaw_deg: 90}
+
+# Random painted shapes that are NOT landmarks (false-positive stress test).
+distractors: 18
+
+# Vertical obstacles for the forward depth sensor and local planner.
+obstacles:
+  - {name: pillar_a, x: 4.5,  y: 0.3, radius: 0.35, height: 4.0}
+  - {name: pillar_b, x: 9.4,  y: 4.6, radius: 0.40, height: 4.0}
+  - {name: pillar_c, x: 5.5,  y: 9.3, radius: 0.35, height: 4.0}

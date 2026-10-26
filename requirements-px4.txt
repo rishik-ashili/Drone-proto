@@ -1,0 +1,4 @@
+# Flying real PX4 (SITL or Pixhawk) through MAVSDK-Python (gRPC API).
+# 'mavsdk' >= 4 is a different native API; the gRPC API continues as 'mavsdk-grpc'.
+-r requirements.txt
+mavsdk>=2.0,<4

@@ -1,0 +1,46 @@
+# PX4 parameter set for GPS-denied flight (plan section 9) - version controlled.
+# Format: NAME VALUE   (apply with: python scripts/apply_px4_params.py)
+# Names and enum values checked against the PX4 v1.17.0 source. They change between versions:
+# confirm each one in QGroundControl for the installed firmware before flying.
+
+# --- Estimator: no GNSS, optical flow + rangefinder (P1-P2) ---
+EKF2_GPS_CTRL 0          # never fuse GNSS
+EKF2_OF_CTRL 1           # fuse optical flow
+EKF2_OF_QMIN 60          # minimum flow quality (sim: sensors.flow.min_quality)
+EKF2_OF_DELAY 20         # ms
+EKF2_RNG_CTRL 2          # rangefinder always used for height
+EKF2_HGT_REF 2           # height reference = range sensor (indoor, flat floor)
+EKF2_RNG_A_HMAX 5.0
+EKF2_BARO_CTRL 1
+
+# --- External vision = landmark fixes from the companion (P1+), VIO in P3 ---
+EKF2_EV_CTRL 9           # bit0 horizontal position + bit3 yaw (add 4 = velocity for VIO)
+EKF2_EV_DELAY 50         # ms, tune against the camera->fix latency (dashboard shows it)
+EKF2_EV_NOISE_MD 0       # use the covariance sent in VISION_POSITION_ESTIMATE
+EKF2_EVP_GATE 4.0        # position innovation gate (sim: estimator.ev_gate_sigma)
+EKF2_EVP_NOISE 0.1
+
+# --- Arming / commander without GPS ---
+COM_ARM_WO_GPS 1
+
+# --- Offboard-loss failsafe (P2) ---
+COM_OF_LOSS_T 1.0        # s without setpoints
+COM_OBL_RC_ACT 5         # 5 = Hold mode (sim: flight_controller.COM_OBL_RC_ACT)
+
+# --- Battery failsafes (Return needs a global position -> Land at critical) ---
+BAT_LOW_THR 0.25
+BAT_CRIT_THR 0.10
+BAT_EMERGEN_THR 0.07
+COM_LOW_BAT_ACT 2        # Land at critical
+
+# --- Speed limits used by the navigation logic ---
+MPC_XY_VEL_MAX 2.5
+MPC_Z_VEL_MAX_UP 1.0
+MPC_Z_VEL_MAX_DN 0.8
+MPC_LAND_SPEED 0.5
+MPC_YAWRAUTO_MAX 70
+
+# --- Geofence backup on the flight controller (companion keeps its own too) ---
+GF_MAX_HOR_DIST 15
+GF_MAX_VER_DIST 6
+GF_ACTION 5              # 5 = Land (3 = Return would need a global position)

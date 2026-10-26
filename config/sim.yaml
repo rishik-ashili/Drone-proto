@@ -1,0 +1,124 @@
+# Simulation configuration: physics, sensors, flight controller, perception,
+# navigation and safety. Any value can be overridden with --config my.yaml.
+
+seed: 42
+
+rates_hz:
+  physics: 200        # vehicle dynamics + IMU (PX4 runs its inner loops faster)
+  flow: 50            # optical flow + rangefinder
+  camera: 15          # downward camera frames into the CV node
+  nav: 20             # companion computer navigation loop / setpoint stream
+  depth: 10           # forward depth sensor (obstacle awareness)
+
+vehicle:
+  mass_kg: 1.6        # 450 mm quad, 4S battery
+  max_thrust_n: 36.0
+  drag_coeff: 0.35    # linear drag N per m/s
+  attitude_tau_s: 0.07
+  max_tilt_deg: 28
+  battery_capacity_mah: 5000
+  battery_cells: 4
+  hover_current_a: 14.0
+
+sensors:
+  imu:
+    accel_noise: 0.08         # m/s^2 per sample
+    accel_bias_rw: 0.0008     # bias random walk per sqrt(s)
+    accel_bias_init: 0.06
+    gyro_noise: 0.004         # rad/s
+    gyro_bias_init: 0.002     # rad/s (yaw gyro bias drives heading drift)
+  flow:
+    noise_base: 0.04          # m/s
+    noise_per_m: 0.025        # extra m/s per metre of height
+    scale_error: 0.03         # +/- fractional scale error (calibration)
+    min_quality: 60           # PX4 EKF2_OF_QMIN equivalent (0..255)
+    max_range_m: 8.0
+  rangefinder:
+    noise: 0.01
+    max_range_m: 10.0
+  baro:
+    noise: 0.15
+    drift_per_s: 0.002
+  mag:
+    noise_deg: 2.0
+    bias_deg: 3.5             # indoor magnetic disturbance -> heading error
+  camera:
+    width: 640
+    height: 480
+    hfov_deg: 80
+    latency_s: 0.03
+  depth:
+    fov_deg: 100
+    rays: 21
+    max_range_m: 6.0
+    noise: 0.03
+
+wind:
+  mean: [0.3, -0.2]           # m/s north, east
+  gust_std: 0.25
+  gust_injection: [2.5, 1.5]  # added when the 'wind_gust' fault is injected
+
+flight_controller:            # PX4 multicopter position controller analogue
+  MPC_XY_P: 0.95
+  MPC_XY_VEL_P: 2.2
+  MPC_XY_VEL_I: 0.4
+  MPC_XY_VEL_D: 0.15
+  MPC_Z_P: 1.0
+  MPC_Z_VEL_P: 4.0
+  MPC_Z_VEL_I: 1.5
+  MPC_XY_VEL_MAX: 2.5
+  MPC_Z_VEL_MAX_UP: 1.0
+  MPC_Z_VEL_MAX_DN: 0.8
+  MPC_LAND_SPEED: 0.5
+  MPC_YAWRAUTO_MAX: 1.2       # rad/s
+  COM_OF_LOSS_T: 1.0          # s without setpoints before the offboard-loss failsafe
+  COM_OBL_RC_ACT: hold        # hold | land
+  BAT_CRIT_THR: 0.10          # PX4 lands on its own below this
+
+estimator:                    # EKF2 analogue running "on the Pixhawk"
+  accel_process_noise: 0.35
+  bias_process_noise: 0.002
+  flow_gate_sigma: 4.0
+  ev_gate_sigma: 4.0          # EKF2_EV_GATE: rejects bad landmark fixes
+  ev_min_std_m: 0.04
+
+perception:
+  detector: auto              # auto | yolo | color   (auto = YOLO if a model exists)
+  yolo_model: models/landmarks_yolov8n.onnx
+  yolo_imgsz: 320
+  yolo_conf: 0.45
+  yolo_iou: 0.5
+  use_aruco: true
+  temporal_frames: 3          # detections needed on consecutive frames to confirm
+  association_gate_m: 2.5     # max distance between predicted and mapped landmark
+  fix_std_aruco: 0.05
+  fix_std_yolo: 0.10
+  fix_std_per_m: 0.02
+
+navigation:
+  cruise_speed: 1.6
+  arrival_tolerance_m: 0.35
+  align_tolerance_m: 0.12
+  align_kp: 0.9
+  align_ki: 0.05
+  align_max_speed: 0.6
+  search_step_m: 1.6
+  search_timeout_s: 25
+  face_travel_direction: true
+  takeoff_timeout_s: 15
+  landing_align_alt_m: 1.2
+  avoidance:
+    enabled: true
+    influence_m: 2.2
+    gain: 1.8
+
+safety:
+  geofence_margin_m: 0.5
+  max_altitude_m: 6.0
+  battery_rts_pct: 25
+  battery_land_pct: 15
+  link_timeout_s: 1.5
+  detection_timeout_s: 6.0
+  camera_timeout_s: 1.0
+  max_pos_std_m: 0.9
+  hold_then_land_s: 10.0

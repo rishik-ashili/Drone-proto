@@ -1,0 +1,13 @@
+# The example mission from Section 9 of the plan (3 m square, 1.5 m altitude),
+# mapped onto landmarks of the indoor arena world 'plan_arena'.
+name: plan_example
+world: plan_arena
+frame: local_ned
+altitude_m: 1.5
+waypoints:
+  - {id: 1, x: 3.0, y: 0.0, landmark: pad_red,  hold_s: 3}
+  - {id: 2, x: 3.0, y: 3.0, landmark: tag_07,   hold_s: 3}
+  - {id: 3, x: 0.0, y: 3.0, landmark: pad_blue, hold_s: 3}
+on_finish: return_to_start
+on_lost_landmark: hold_then_continue
+precision_land_landmark: home_pad

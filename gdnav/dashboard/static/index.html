@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS-Denied Drone · Digital Twin</title>
+<link rel="stylesheet" href="/static/style.css">
+<script type="importmap">{"imports": {"three": "/static/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="28" height="28"><circle cx="7" cy="7" r="4.5"/><circle cx="25" cy="7" r="4.5"/><circle cx="7" cy="25" r="4.5"/><circle cx="25" cy="25" r="4.5"/><path d="M9.5 9.5 L22.5 22.5 M22.5 9.5 L9.5 22.5"/><rect x="12" y="12" width="8" height="8" rx="2"/></svg>
+    </div>
+    <div>
+      <h1>GPS-Denied Navigation</h1>
+      <p class="sub">Vision-based waypoint navigation · PX4 digital twin</p>
+    </div>
+  </div>
+  <div class="controls">
+    <label class="field">Mission
+      <select id="mission"></select>
+    </label>
+    <label class="field">Speed
+      <select id="speed">
+        <option value="0.5">0.5×</option><option value="1" selected>1×</option>
+        <option value="2">2×</option><option value="4">4×</option><option value="8">8×</option>
+      </select>
+    </label>
+    <label class="switch" title="Send landmark fixes to the flight-controller estimator">
+      <input type="checkbox" id="correction" checked><span>Vision correction</span>
+    </label>
+    <button id="btnStart" class="primary">▶ Start mission</button>
+    <button id="btnPause">Pause</button>
+    <button id="btnReset">Reset</button>
+  </div>
+  <div class="status">
+    <div class="kv"><span>Sim time</span><b id="simTime">0.0 s</b></div>
+    <div class="kv"><span>PX4 mode</span><b id="px4Mode">—</b></div>
+    <div class="state-badge" id="stateBadge">IDLE</div>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="panel view" aria-label="3D view">
+    <div class="panel-head">
+      <h2>3D digital twin</h2>
+      <div class="legend">
+        <span><i class="sw true"></i>True path</span>
+        <span><i class="sw est"></i>Onboard estimate (vision-corrected)</span>
+        <span><i class="sw dr"></i>Dead reckoning only (no vision)</span>
+      </div>
+      <div class="toggles">
+        <label><input type="checkbox" id="follow" checked> Follow</label>
+        <label><input type="checkbox" id="showDr" checked> DR ghost</label>
+      </div>
+    </div>
+    <div id="three" class="three"></div>
+    <div class="caption" id="caption">Press <b>Start mission</b> to arm, take off and fly the route without GPS.</div>
+  </section>
+
+  <section class="panel cam" aria-label="Onboard camera">
+    <div class="panel-head">
+      <h2>Onboard camera · AI perception</h2>
+      <span class="pill" id="detector">—</span>
+    </div>
+    <div class="camwrap"><img id="camImg" alt="Downward camera with detections" src="/api/camera.mjpg"></div>
+    <div class="percstats">
+      <div><span>Inference</span><b id="pFps">—</b></div>
+      <div><span>Frame time</span><b id="pMs">—</b></div>
+      <div><span>Capture→setpoint</span><b id="pLat">—</b></div>
+      <div><span>Fixes used / rejected</span><b id="pFix">—</b></div>
+    </div>
+    <ul class="dets" id="dets"></ul>
+  </section>
+
+  <section class="panel acc" aria-label="Navigation accuracy">
+    <div class="panel-head"><h2>Navigation accuracy (vs. ground truth)</h2></div>
+    <div class="kpis">
+      <div class="kpi est"><span>Position error · with vision</span><b id="kEst">—</b><small id="kEstMax"></small></div>
+      <div class="kpi dr"><span>Position error · dead reckoning</span><b id="kDr">—</b><small id="kDrMax"></small></div>
+      <div class="kpi"><span>Waypoint reach error (mean)</span><b id="kReach">—</b><small id="kReachMax"></small></div>
+      <div class="kpi"><span>Return-to-start error</span><b id="kRts">—</b><small id="kRtsPct"></small></div>
+      <div class="kpi"><span>Distance flown</span><b id="kDist">—</b><small id="kBat"></small></div>
+    </div>
+    <canvas id="errChart" class="chart" height="150"></canvas>
+  </section>
+
+  <section class="panel map" aria-label="Top-down map">
+    <div class="panel-head"><h2>Top-down map · local NED frame</h2><span class="pill" id="planner">avoidance idle</span></div>
+    <canvas id="map" class="mapcanvas"></canvas>
+  </section>
+
+  <aside class="side">
+    <section class="panel">
+      <div class="panel-head"><h2>Mission state machine</h2></div>
+      <div class="states" id="states"></div>
+      <table class="wps"><thead><tr><th>WP</th><th>Landmark</th><th>Status</th><th>Reach err.</th></tr></thead><tbody id="wpBody"></tbody></table>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Health monitor</h2></div>
+      <div class="health" id="health"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Failure injection</h2><span class="hint">click to toggle</span></div>
+      <div class="faults" id="faults"></div>
+    </section>
+    <section class="panel events-panel">
+      <div class="panel-head"><h2>Event log</h2></div>
+      <ol class="events" id="events"></ol>
+    </section>
+  </aside>
+</main>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

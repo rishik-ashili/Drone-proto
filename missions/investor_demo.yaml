@@ -1,0 +1,14 @@
+# Investor demo: four landmark waypoints around the arena, an obstacle on
+# every leg, return to start and precision landing on the home pad.
+name: investor_demo
+world: indoor_arena
+frame: local_ned          # metres from takeoff, no GPS
+altitude_m: 2.5
+waypoints:
+  - {id: 1, x: 9.0, y: 0.5, landmark: pad_red,  hold_s: 3}
+  - {id: 2, x: 9.5, y: 9.0, landmark: tag_07,   hold_s: 3}
+  - {id: 3, x: 1.0, y: 9.5, landmark: pad_blue, hold_s: 3}
+  - {id: 4, x: 5.0, y: 4.5, landmark: cross_c,  hold_s: 2}
+on_finish: return_to_start
+on_lost_landmark: hold_then_continue   # after search_timeout_s
+precision_land_landmark: home_pad

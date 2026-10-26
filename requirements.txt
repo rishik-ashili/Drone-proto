@@ -1,0 +1,6 @@
+# Core simulator + dashboard (Python 3.10 - 3.13)
+numpy>=1.24
+opencv-python>=4.8       # includes cv2.aruco (ArucoDetector) and cv2.dnn
+pyyaml>=6.0
+onnxruntime>=1.16        # YOLO inference (CPU; use onnxruntime-gpu on NVIDIA machines)
+matplotlib>=3.7          # flight reports

@@ -1,0 +1,5 @@
+# Training the landmark detector (pulls in PyTorch). Ultralytics is AGPL-3.0 - see docs/ML.md.
+-r requirements.txt
+ultralytics>=8.3
+onnx>=1.15
+onnxslim>=0.1.34
