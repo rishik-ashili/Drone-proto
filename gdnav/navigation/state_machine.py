@@ -105,6 +105,10 @@ class MissionStateMachine:
     # ------------------------------------------------------------ helpers
     def start(self) -> None:
         if self.state in (State.IDLE, State.LANDED, State.ABORTED):
+            if self.state != State.IDLE:  # flying the mission again from where it landed
+                self.mgr = WaypointManager(self.mission)
+                self.mission_complete = False
+                self.rts_result = None
             self._enter(State.PREFLIGHT, "mission start requested")
 
     def _enter(self, s: State, reason: str = "") -> None:
