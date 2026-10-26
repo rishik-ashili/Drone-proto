@@ -43,9 +43,10 @@ Use the *Failure injection* panel during an ALIGN phase:
 
 ### 4. Results (1 min)
 
-When it lands: *Return-to-start error* (typically 5–20 cm after about 45 m) and *Waypoint reach
-error*. Then untick **Vision correction** (this resets the run) and fly again to show the drone
-missing landmarks and landing off the pad.
+When it lands: *Return-to-start error* (typically under 10 cm after about 44 m) and *Waypoint reach
+error* (about 8 cm). Then untick **Vision AI** (this resets the run) and fly again. On optical flow
+and the IMU alone, the drone misses each landmark by about 0.5–0.9 m. That is roughly 7× worse, and
+the error grows with every metre flown.
 
 > "Same drone, same sensors. The only difference is our vision AI. That's the product."
 

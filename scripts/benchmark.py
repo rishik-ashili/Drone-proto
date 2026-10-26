@@ -106,7 +106,9 @@ def main() -> None:
         off = fly("investor_demo", seed=200 + i, correction=False)
         cmp_rows.append((on, off))
     res["correction"] = [{"on": on, "off": off} for on, off in cmp_rows]
-    md += ["", "## Value of AI landmark correction (same seeds)", "",
+    md += ["", "## Value of the vision AI (same seeds)", "",
+           "OFF = same drone and sensors flying on optical flow + IMU only: no landmark fixes, no alignment, "
+           "no precision landing. True errors measured against simulator ground truth.", "",
            "| seed | max estimate error ON (m) | OFF (m) | reach error ON (m) | OFF (m) | RTS error ON (m) | OFF (m) |",
            "|---|---|---|---|---|---|---|"]
     md += [f"| {on['seed']} | {fmt(on['est_error_max_m'])} | {fmt(off['est_error_max_m'])} | {fmt(on['reach_error_mean_m'])} | "

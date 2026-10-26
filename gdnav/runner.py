@@ -50,7 +50,7 @@ class MissionRunner:
         self.events: deque[dict] = deque(maxlen=200)
         self.event_count = 0
         self.sm = MissionStateMachine(cfg["navigation"], sc, mission, vehicle, self.planner, self.fence,
-                                      self.health, self._event, self._truth)
+                                      self.health, self._event, self._truth, vision=landmark_correction)
         self.logger = FlightLogger(log_path)
         self.logger.write("meta", mission=mission.to_dict(), world=world.to_dict(),
                           landmark_correction=landmark_correction, detector=self.cv.detector_name,

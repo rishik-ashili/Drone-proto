@@ -62,8 +62,12 @@ def _spiral(step: float, rings: int = 3) -> list[np.ndarray]:
 class MissionStateMachine:
     def __init__(self, nav_cfg: dict, safety_cfg: dict, mission: Mission, vehicle: VehicleInterface,
                  planner: LocalPlanner, geofence: Geofence, health: HealthMonitor,
-                 event_cb: Callable[[str, str, dict], None], truth_fn: Callable[[], dict | None] = lambda: None):
+                 event_cb: Callable[[str, str, dict], None], truth_fn: Callable[[], dict | None] = lambda: None,
+                 vision: bool = True):
         self.c = nav_cfg
+        # vision=False: fly on the GPS-free estimate alone (no landmark alignment / precision
+        # landing) - the "without our AI" baseline
+        self.vision = vision
         self.sc = safety_cfg
         self.mission = mission
         self.mgr = WaypointManager(mission)
@@ -144,7 +148,7 @@ class MissionStateMachine:
                 self.visible[o.name] = (t, o)
 
     def _obs(self, name: str | None, max_age: float = 0.6) -> LandmarkObservation | None:
-        if not name or name not in self.visible:
+        if not self.vision or not name or name not in self.visible:
             return None
         t, o = self.visible[name]
         return o if self.t - t <= max_age else None
@@ -152,7 +156,7 @@ class MissionStateMachine:
     def _record(self, telem: Telemetry, found: bool) -> None:
         wp = self.mgr.current
         truth = self.truth_fn()
-        res = {"id": wp.id, "landmark": wp.landmark, "found": found, "t": round(self.t, 2),
+        res = {"id": wp.id, "landmark": wp.landmark, "found": found, "vision": self.vision, "t": round(self.t, 2),
                "est_error_m": round(float(np.linalg.norm(telem.pos[:2] - wp.xy)), 3)}
         if truth is not None:
             res["reach_error_m"] = round(float(np.linalg.norm(truth["pos"][:2] - wp.xy)), 3)
@@ -254,7 +258,7 @@ class MissionStateMachine:
             return
         speed = float(np.linalg.norm(telem.vel[:2]))
         if d < self.c["arrival_tolerance_m"] and speed < 0.4:
-            if wp.landmark:
+            if wp.landmark and self.vision:
                 self._start_search("arrived, landmark not yet confirmed")
             else:
                 self._dwell_done = False
@@ -359,7 +363,7 @@ class MissionStateMachine:
 
     def _s_return_to_start(self, telem: Telemetry):
         d = self._fly_to(telem, self.home)
-        lm = self.mission.precision_land_landmark
+        lm = self.mission.precision_land_landmark if self.vision else None
         if lm and self._obs(lm) is not None and d < 2.0:
             self._enter(State.PRECISION_LAND, f"home pad '{lm}' confirmed")
             return

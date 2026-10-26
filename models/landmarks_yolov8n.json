@@ -1,0 +1,33 @@
+{
+  "names": [
+    "helipad",
+    "pad_red",
+    "pad_blue",
+    "cross_yellow",
+    "aruco_tag"
+  ],
+  "eval": {
+    "model": "yolov8n",
+    "classes": [
+      "helipad",
+      "pad_red",
+      "pad_blue",
+      "cross_yellow",
+      "aruco_tag"
+    ],
+    "imgsz": 320,
+    "epochs": 30,
+    "train_minutes": 46.6,
+    "precision": 0.9733,
+    "recall": 0.9839,
+    "mAP50": 0.9938,
+    "mAP50_95": 0.8927,
+    "per_class_mAP50_95": {
+      "helipad": 0.916,
+      "pad_red": 0.9013,
+      "pad_blue": 0.9028,
+      "cross_yellow": 0.855,
+      "aruco_tag": 0.8884
+    }
+  }
+}

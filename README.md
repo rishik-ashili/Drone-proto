@@ -67,8 +67,9 @@ Useful options:
    link lost* (the PX4 offboard-loss failsafe triggers, then the mission recovers), *Battery drops to
    22 %* (return to start), *Inject false-positive detections* (the estimator's innovation gate
    rejects them), or *Strong wind gust*.
-4. **Vision correction toggle.** Uncheck *Vision correction* in the top bar and run again to show the
-   drone drifting off target without the AI.
+4. **Vision AI toggle.** Uncheck *Vision AI* in the top bar (this resets the run) and fly again. The
+   same drone and sensors now fly on optical flow and the IMU alone: waypoints are missed by about
+   0.5–0.9 m instead of about 0.08 m (see `docs/benchmark_results.md`).
 
 A step-by-step talk track is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
 
@@ -79,7 +80,7 @@ A step-by-step talk track is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
 ```bash
 # Headless mission, prints the state machine and a metrics summary
 python scripts/run_sim.py
-python scripts/run_sim.py --no-correction                          # dead reckoning only
+python scripts/run_sim.py --no-correction                          # vision AI off (flow + IMU only)
 python scripts/run_sim.py --inject camera_covered@14:4 --inject wind_gust@20:15
 python scripts/run_sim.py --record demo.mp4                        # video for the pitch deck
 

@@ -477,7 +477,8 @@ function updatePanels() {
   $('wpBody').innerHTML = world.mission.waypoints.map((w, i) => {
     const r = s.wp_results[i];
     let st = '<span class="muted">pending</span>';
-    if (r) st = r.found ? '<span class="ok">✓ aligned</span>' : (w.landmark ? '<span class="warn">✗ not found</span>' : '<span class="ok">✓ reached</span>');
+    if (r) st = r.found ? '<span class="ok">✓ aligned</span>' : (!w.landmark ? '<span class="ok">✓ reached</span>'
+      : r.vision === false ? '<span class="muted">reached (no vision)</span>' : '<span class="warn">✗ not found</span>');
     else if (i === s.wp_index && !['IDLE', 'PREFLIGHT', 'TAKEOFF'].includes(s.state)) st = `<span>${s.state.replaceAll('_', ' ').toLowerCase()}</span>`;
     return `<tr class="${i === s.wp_index ? 'active' : ''}"><td>${w.id}</td><td>${w.landmark || '—'}</td><td>${st}</td><td>${r && r.reach_error_m != null ? r.reach_error_m.toFixed(2) + ' m' : ''}</td></tr>`;
   }).join('');

@@ -3,7 +3,7 @@
 
     python scripts/run_sim.py                                   # investor_demo, as fast as possible
     python scripts/run_sim.py --mission hello_square
-    python scripts/run_sim.py --no-correction                   # dead reckoning only, for comparison
+    python scripts/run_sim.py --no-correction                   # vision AI off: flow + IMU only, for comparison
     python scripts/run_sim.py --inject camera_covered@40:6 --inject wind_gust@20:10
     python scripts/run_sim.py --record demo.mp4                 # video for slides / social
     python scripts/run_sim.py --realtime                        # pace at 1x wall clock
