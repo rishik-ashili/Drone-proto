@@ -9,7 +9,10 @@ PX4 side: EKF2_EV_CTRL = 15 (pos + vel + yaw), EKF2_EV_DELAY tuned to the
 measured camera->odometry latency. Bench-test with props off: walk the drone
 forward and check that PX4's local position x increases (plan, section 11).
 
-Run:  ros2 run <your_pkg> vio_bridge_node   (or: python3 jetson/vio_bridge_node.py)
+Standalone VIO -> PX4 bridge, for flying on VIO without the mission node. The mission node
+(nav_source:=vio) does the same and also corrects the VIO frame with landmark fixes.
+
+Run:  ros2 run gdnav_ros vio_bridge_node
 """
 from __future__ import annotations
 
@@ -23,8 +26,11 @@ from px4_msgs.msg import VehicleOdometry
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gdnav.bridge.frames import ros_odometry_to_px4  # noqa: E402
+try:
+    from gdnav.bridge.frames import ros_odometry_to_px4
+except ImportError:  # running from the repository without `pip install -e .`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+    from gdnav.bridge.frames import ros_odometry_to_px4  # noqa: E402
 
 
 class VioBridge(Node):

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>gdnav_ros</name>
+  <version>0.3.0</version>
+  <description>GPS-denied navigation companion (perception, mission, safety) on ROS 2 + PX4 uXRCE-DDS</description>
+  <maintainer email="ashilirishik@gmail.com">Drone-proto team</maintainer>
+  <license>Proprietary</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>px4_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

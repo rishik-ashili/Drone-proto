@@ -1,0 +1,35 @@
+# gdnav companion image for Jetson Orin (JetPack 6.x, ROS 2 Humble).
+#
+# Pick a ROS 2 Humble base image that matches your L4T / JetPack release, e.g. from
+# https://github.com/dusty-nv/jetson-containers (ros:humble-ros-base-l4t-r36.x.y) or NVIDIA Isaac ROS.
+#   docker build -f docker/Dockerfile.jetson --build-arg BASE_IMAGE=<image> -t gdnav-jetson .
+#   docker compose -f docker/docker-compose.jetson.yml up
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+SHELL ["/bin/bash", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive ROS_DISTRO=humble
+
+RUN apt-get update && apt-get install -y --no-install-recommends git cmake build-essential python3-pip \
+      python3-colcon-common-extensions && rm -rf /var/lib/apt/lists/*
+
+# Micro XRCE-DDS Agent (PX4 <-> ROS 2 bridge), version recommended by the PX4 docs
+RUN git clone -b v2.4.3 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git /tmp/agent && \
+    cmake -S /tmp/agent -B /tmp/agent/build && cmake --build /tmp/agent/build -j"$(nproc)" && \
+    cmake --install /tmp/agent/build && ldconfig && rm -rf /tmp/agent
+
+# px4_msgs must match the PX4 firmware version on the Pixhawk
+WORKDIR /opt/ros_ws/src
+RUN git clone -b release/1.17 --depth 1 https://github.com/PX4/px4_msgs.git
+COPY jetson/ros2/gdnav_ros /opt/ros_ws/src/gdnav_ros
+
+# gdnav Python package (perception, navigation, safety). onnxruntime-gpu for Jetson comes from
+# NVIDIA's Jetson wheels; the CPU build is installed as a fallback so the image always runs.
+COPY . /opt/gdnav
+RUN pip3 install --no-cache-dir -e /opt/gdnav && (pip3 install --no-cache-dir onnxruntime-gpu || true)
+
+WORKDIR /opt/ros_ws
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build --symlink-install
+
+COPY docker/jetson_entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["ros2", "launch", "gdnav_ros", "gdnav.launch.py"]

@@ -1,0 +1,9 @@
+# ros2 run gdnav_ros mission_node --ros-args --params-file config/gdnav_params.yaml
+gdnav_mission:
+  ros__parameters:
+    mission: investor_demo
+    nav_source: vio                       # flow | vio
+    camera_topic: /camera/down/image_raw  # downward camera (sensor_msgs/Image)
+    vio_topic: /visual_slam/tracking/odometry
+    floor_map: ""                         # e.g. /opt/gdnav/maps/indoor_arena.npz
+    autostart: false

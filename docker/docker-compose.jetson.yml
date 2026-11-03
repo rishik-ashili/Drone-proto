@@ -1,0 +1,19 @@
+# Jetson Orin: gdnav companion talking to the Pixhawk on TELEM2 (/dev/ttyTHS1).
+#   docker compose -f docker/docker-compose.jetson.yml up
+services:
+  gdnav:
+    image: gdnav-jetson
+    runtime: nvidia
+    network_mode: host          # ROS 2 DDS discovery with the camera / VSLAM containers
+    privileged: true            # serial port + cameras
+    devices:
+      - /dev/ttyTHS1:/dev/ttyTHS1
+    volumes:
+      - ../logs:/opt/gdnav/logs
+      - ../maps:/opt/gdnav/maps
+    environment:
+      - ROS_DOMAIN_ID=0
+    command: >
+      ros2 launch gdnav_ros gdnav.launch.py
+      mission:=investor_demo nav_source:=vio px4_port:=/dev/ttyTHS1
+    restart: unless-stopped
