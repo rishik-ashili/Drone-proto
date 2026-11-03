@@ -79,7 +79,9 @@ map_matching:                 # teach-and-repeat floor-map drift correction (gdn
   patch_m: 3.0                # orthorectified patch around the drone
   search_m: 1.2               # largest drift searched for
   min_inliers: 25
-  teach_max_std: 0.08         # only paint the map while the estimate is this good
+  teach_max_std: 0.08         # only paint the map while the estimate is this good...
+  teach_fix_window_s: 1.5     # ...and a landmark fix was accepted this recently
+  map_std_m: 0.12             # accuracy of the taught map itself (teach-flight error): added to every fix
 
 wind:
   mean: [0.3, -0.2]           # m/s north, east

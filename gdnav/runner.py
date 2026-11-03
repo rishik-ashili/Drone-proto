@@ -269,7 +269,8 @@ class MissionRunner:
         pos[2] = -self.cv.localizer.height(frame.range_m, frame.att)
         if -pos[2] < 0.8 or self.sm.state not in FLYING_STATES:
             return
-        if self.teach_map is not None and telem.pos_std < self.map_cfg["teach_max_std"] and now - self._last_fix_t < 3.0:
+        if (self.teach_map is not None and telem.pos_std < self.map_cfg["teach_max_std"]
+                and now - self._last_fix_t < self.map_cfg.get("teach_fix_window_s", 1.5)):
             mm.teach(self.teach_map, image, pos, frame.att)
             ms["taught"] += 1
         if self.floor_map is not None:
@@ -279,7 +280,9 @@ class MissionRunner:
             if fix is None:
                 return
             yaw_now = fix.yaw + float(telem.att[2] - frame.att[2])
-            if self._send_fix(frame.t, fix.xy + lag, fix.std, yaw_now):
+            # a map fix can only be as good as the teach flight that painted the map
+            std = float(np.hypot(fix.std, self.map_cfg.get("map_std_m", 0.12)))
+            if self._send_fix(frame.t, fix.xy + lag, std, yaw_now):
                 ms["fixes"] += 1
                 ms["last_shift"] = round(fix.shift_m, 3)
             else:
