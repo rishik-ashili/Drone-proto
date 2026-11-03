@@ -70,6 +70,16 @@ vio:                          # behavioural model of RealSense/OAK-D + cuVSLAM (
   fusion_drift_per_m: 0.02    # LandmarkVioFusion process noise
   fusion_yaw_drift_deg_per_m: 0.3
 
+map_matching:                 # teach-and-repeat floor-map drift correction (gdnav/perception/map_matcher.py)
+  map: null                   # floor map for repeat flights, e.g. maps/indoor_arena.npz
+  teach_out: null             # build a floor map during this (teach) flight and save it here
+  rate_hz: 4
+  res: 0.01                   # m per map pixel
+  patch_m: 3.0                # orthorectified patch around the drone
+  search_m: 1.2               # largest drift searched for
+  min_inliers: 25
+  teach_max_std: 0.08         # only paint the map while the estimate is this good
+
 wind:
   mean: [0.3, -0.2]           # m/s north, east
   gust_std: 0.25

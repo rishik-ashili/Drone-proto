@@ -130,7 +130,7 @@ class Px4MavsdkVehicle(VehicleInterface):
             if img is not None:
                 tl = self.telemetry()
                 self._frame = CameraFrame(time.monotonic() - _T0, img, tl.att.copy(),
-                                          tl.range_m if tl.range_m > 0 else -tl.pos[2])
+                                          tl.range_m if tl.range_m > 0 else -tl.pos[2], tl.pos.copy())
             time.sleep(1 / 30)
 
     # ---------------------------------------------------- VehicleInterface

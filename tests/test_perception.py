@@ -57,3 +57,23 @@ def test_yolo_detects_every_landmark_class(setup, name):
     lm = world.landmark(name)
     img = cam.render(np.array([lm.x + 0.3, lm.y - 0.2, -2.5]), np.array([0.03, 0.02, 1.0]))
     assert lm.cls in [d.cls for d in det.detect(img)]
+
+
+def test_floor_map_matching_recovers_drift(setup):
+    from gdnav.perception.map_matcher import FloorMap, MapMatcher
+
+    _, world, cam = setup
+    mm = MapMatcher(cam.K)
+    fmap = FloorMap(world.x_min, world.x_max, world.y_min, world.y_max, 0.01)
+    for x in np.arange(2.0, 7.1, 1.0):  # teach flight over a patch of floor
+        for y in np.arange(-1.0, 4.1, 1.0):
+            pos, att = np.array([x, y, -2.5]), np.array([0.02, -0.01, 0.3])
+            mm.teach(fmap, cam.render(pos, att, light=0.9, noise=4), pos, att)
+    true_pos, att = np.array([4.6, 1.3, -2.4]), np.array([0.03, 0.02, 1.2])
+    img = cam.render(true_pos, att, light=1.1, noise=3)
+    est = true_pos + np.array([0.5, -0.4, 0.0])           # 0.64 m of drift
+    est_att = att + np.array([0.0, 0.0, math.radians(3)])
+    fix = mm.match(fmap, img, est, est_att, float(est_att[2]))
+    assert fix is not None
+    assert np.linalg.norm(fix.xy - true_pos[:2]) < 0.05
+    assert abs(math.degrees(fix.yaw - att[2])) < 1.0

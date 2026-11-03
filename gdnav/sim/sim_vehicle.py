@@ -189,7 +189,7 @@ class SimVehicle(VehicleInterface):
         if "camera_covered" in self.faults:
             img = (img * 0.04).astype(np.uint8) + self.rng.integers(0, 6, img.shape, dtype=np.uint8)
         # companion receives the frame with the *estimated* attitude / range
-        self.frame = CameraFrame(self.t, img, self.ekf.att.copy(), self._range)
+        self.frame = CameraFrame(self.t, img, self.ekf.att.copy(), self._range, self.ekf.pos.copy())
         self.frame_count += 1
 
     def _update_telemetry(self) -> None:

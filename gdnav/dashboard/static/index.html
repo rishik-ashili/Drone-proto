@@ -32,7 +32,10 @@
       <select id="navSource"><option value="flow">Optical flow (P1-P2)</option><option value="vio">Stereo VIO (P3)</option></select>
     </label>
     <label class="switch" title="Off = fly on optical flow + IMU only (no landmark fixes, alignment or precision landing)">
-      <input type="checkbox" id="correction" checked><span>Vision AI</span>
+      <input type="checkbox" id="correction" checked><span>Landmark AI</span>
+    </label>
+    <label class="switch" title="Teach-and-repeat: correct drift by matching the floor against a map taught on an earlier flight">
+      <input type="checkbox" id="floorMap"><span>Floor map</span>
     </label>
     <button id="btnStart" class="primary">▶ Start mission</button>
     <button id="btnPause">Pause</button>

@@ -34,6 +34,11 @@ async function loadWorld() {
   const sel = $('mission');
   sel.innerHTML = world.missions.map((m) => `<option ${m === world.mission.name ? 'selected' : ''}>${m}</option>`).join('');
   buildFaultButtons();
+  $('floorMap').disabled = !world.floor_map_available;
+  $('floorMap').checked = world.floor_map_on;
+  $('floorMap').parentElement.title = world.floor_map_available
+    ? 'Teach-and-repeat: correct drift by matching the floor against a map taught on an earlier flight'
+    : 'No floor map for this world yet: run  python scripts/run_sim.py --teach maps/<world>.npz';
   buildScene();
 }
 
@@ -48,6 +53,7 @@ $('speed').onchange = (e) => api('speed', { value: parseFloat(e.target.value) })
 $('mission').onchange = (e) => resetAll('mission', { value: e.target.value });
 $('correction').onchange = (e) => resetAll('correction', { value: e.target.checked });
 $('navSource').onchange = (e) => resetAll('nav_source', { value: e.target.value });
+$('floorMap').onchange = (e) => resetAll('floor_map', { value: e.target.checked });
 
 async function resetAll(cmd, extra = {}) {
   await api(cmd, extra);
@@ -496,6 +502,8 @@ function updatePanels() {
     ['Optical flow quality', `${s.flow_quality} / 255`, s.flow_quality < 60 && s.armed ? 'warn' : ''],
     ['Geofence', f.geofence ? 'BREACH' : 'inside', lvl('geofence')],
     ['Rangefinder', fmt(s.range), ''],
+    ...(s.floor_map ? [['Floor-map matching', s.floor_map.mode === 'teach' ? `teaching · ${s.floor_map.taught} frames`
+      : `${s.floor_map.fixes}/${s.floor_map.tries} fixes` + (s.floor_map.last_shift != null ? ` · last ${fmt(s.floor_map.last_shift)}` : ''), '']] : []),
     ...(s.vio ? [['Stereo VIO', s.vio.tracking ? `tracking · q ${s.vio.quality} · ${s.vio.resets} resets` : 'LOST · flow fallback',
       s.vio.tracking ? (s.vio.quality < 60 ? 'warn' : '') : 'warn']] : []),
     ['PX4 failsafe', f.vehicle_failsafe ? f.vehicle_failsafe.msg.replace('PX4 failsafe: ', '') : 'none', lvl('vehicle_failsafe')],

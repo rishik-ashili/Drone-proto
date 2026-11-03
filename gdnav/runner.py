@@ -17,7 +17,7 @@ import cv2
 import numpy as np
 
 from gdnav.bridge.landmark_vio_fusion import LandmarkVioFusion
-from gdnav.common.config import LOGS_DIR, load_sim_config
+from gdnav.common.config import LOGS_DIR, REPO_ROOT, load_sim_config
 from gdnav.common.logger import FlightLogger
 from gdnav.interface.vehicle import VehicleInterface
 from gdnav.navigation.geofence import Geofence
@@ -25,6 +25,7 @@ from gdnav.navigation.local_planner import LocalPlanner
 from gdnav.navigation.mission import Mission
 from gdnav.navigation.state_machine import FLYING_STATES, VISION_STATES, MissionStateMachine, State
 from gdnav.perception.cv_node import CvNode
+from gdnav.perception.map_matcher import FloorMap, MapMatcher
 from gdnav.safety.health_monitor import HealthMonitor
 from gdnav.sim.sim_vehicle import FAULTS, SimVehicle
 from gdnav.sim.world import World
@@ -74,6 +75,23 @@ class MissionRunner:
         self.perc_ms: deque[float] = deque(maxlen=60)
         self.latency_ms: deque[float] = deque(maxlen=60)
         self.summary: dict | None = None
+
+        # Phase 4: teach-and-repeat floor-map matching
+        mc = cfg.get("map_matching", {})
+        self.map_cfg = mc
+        self.map_matcher: MapMatcher | None = None
+        self.floor_map: FloorMap | None = None
+        self.teach_map: FloorMap | None = None
+        self.map_stats = {"fixes": 0, "rejected": 0, "tries": 0, "last_shift": None, "taught": 0, "ms": 0.0}
+        self._map_next = 0.0
+        self._last_fix_t = -1e9
+        if mc.get("map") or mc.get("teach_out"):
+            self.map_matcher = MapMatcher(self.cv.K, mc["res"], mc["patch_m"], mc["search_m"], mc["min_inliers"])
+            if mc.get("map"):
+                p = Path(mc["map"])
+                self.floor_map = FloorMap.load(p if p.is_absolute() else REPO_ROOT / p)
+            if mc.get("teach_out"):
+                self.teach_map = FloorMap(world.x_min, world.x_max, world.y_min, world.y_max, mc["res"])
 
         # Phase 3: stereo VIO as the primary navigation source
         self.nav_source = cfg.get("nav_source", "flow")
@@ -159,16 +177,23 @@ class MissionRunner:
         if frame is not None and frame.t != self._last_frame_t:
             self._last_frame_t = frame.t
             new_frame_t = frame.t
-            perc = self.cv.process(frame, telem.pos, annotate=self.annotate)
+            est_at_exposure = frame.pos if frame.pos is not None else telem.pos
+            # a fix describes the drone at exposure time: apply it as a correction of that estimate
+            lag = telem.pos[:2] - est_at_exposure[:2]
+            perc = self.cv.process(frame, est_at_exposure, annotate=self.annotate)
             self.last_perception = perc
             self.perc_ms.append(perc.proc_ms)
             for o in perc.observations:
                 if o.confirmed and self.landmark_correction:
-                    o.accepted = (self._fuse_landmark_with_vio(o) if self.fusion is not None
-                                  else self.vehicle.send_vision_position(frame.t, o.fix_xy, o.std, o.yaw_fix))
+                    o.accepted = self._send_fix(frame.t, o.fix_xy + lag, o.std, o.yaw_fix)
+                    if o.accepted:
+                        self._last_fix_t = now
                     self.fix_stats["sent"] += 1
                     self.fix_stats["accepted" if o.accepted else "rejected"] += 1
             self.sm.observe(now, perc.observations)
+            if self.map_matcher is not None and frame.t >= self._map_next:
+                self._map_next = frame.t + 1.0 / self.map_cfg["rate_hz"]
+                self._floor_map_step(frame, est_at_exposure, lag, telem, now)
             if self.annotate and perc.annotated is not None:
                 ok, buf = cv2.imencode(".jpg", perc.annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 if ok:
@@ -216,12 +241,40 @@ class MissionRunner:
             vs.update(last_t=s.t, quality=s.quality, reset=s.reset_counter)
             vs["samples"] += 1
 
-    def _fuse_landmark_with_vio(self, o) -> bool:
+    def _send_fix(self, t: float, xy: np.ndarray, std: float, yaw: float | None) -> bool:
+        """Absolute position (and heading) fix -> estimator, directly (flow) or via the VIO correction."""
+        if self.fusion is not None:
+            return self._fuse_fix_with_vio(xy, std, yaw)
+        return self.vehicle.send_vision_position(t, xy, std, yaw)
+
+    def _floor_map_step(self, frame, est_at, lag, telem, now) -> None:
+        mm, ms = self.map_matcher, self.map_stats
+        pos = np.array(est_at, float).copy()
+        pos[2] = -self.cv.localizer.height(frame.range_m, frame.att)
+        if -pos[2] < 0.8 or self.sm.state not in FLYING_STATES:
+            return
+        if self.teach_map is not None and telem.pos_std < self.map_cfg["teach_max_std"] and now - self._last_fix_t < 3.0:
+            mm.teach(self.teach_map, frame.image, pos, frame.att)
+            ms["taught"] += 1
+        if self.floor_map is not None:
+            ms["tries"] += 1
+            fix = mm.match(self.floor_map, frame.image, pos, frame.att, float(frame.att[2]))
+            ms["ms"] = mm.last_ms
+            if fix is None:
+                return
+            yaw_now = fix.yaw + float(telem.att[2] - frame.att[2])
+            if self._send_fix(frame.t, fix.xy + lag, fix.std, yaw_now):
+                ms["fixes"] += 1
+                ms["last_shift"] = round(fix.shift_m, 3)
+            else:
+                ms["rejected"] += 1
+
+    def _fuse_fix_with_vio(self, xy, std, yaw) -> bool:
         f = self.fusion
         if f.last_odom is None:
             return False
         before = f.last_corrected[0][:2].copy()
-        ok = f.on_landmark_fix(o.fix_xy, o.std, yaw_fix=o.yaw_fix, yaw_odom=f.last_odom[1])
+        ok = f.on_landmark_fix(xy, std, yaw_fix=yaw, yaw_odom=f.last_odom[1])
         if ok and np.linalg.norm(f.last_corrected[0][:2] - before) > 0.15:
             # a visible jump in the corrected pose: tell EKF2 via the odometry reset counter
             self.vio_state["ev_resets"] += 1
@@ -295,6 +348,9 @@ class MissionRunner:
             "landmark_correction": self.landmark_correction,
             "nav_source": self.nav_source,
         }
+        if self.map_matcher is not None:
+            m.update(map_fixes=self.map_stats["fixes"], map_rejected=self.map_stats["rejected"],
+                     map_tries=self.map_stats["tries"])
         if self.fusion is not None:
             m.update(vio_resets=self.vio_state["reset"], vio_samples=self.vio_state["samples"],
                      vio_corrections=self.vio_state["ev_resets"])
@@ -308,6 +364,12 @@ class MissionRunner:
         return m
 
     def finish(self) -> dict:
+        if self.teach_map is not None and self.map_stats["taught"]:
+            out = Path(self.map_cfg["teach_out"])
+            out = out if out.is_absolute() else REPO_ROOT / out
+            self.teach_map.save(out)
+            self._event("info", f"Floor map saved: {out.name} ({self.teach_map.coverage * 100:.0f} % of arena)", {})
+            self.map_stats["taught"] = 0
         self.summary = self.metrics()
         self.summary["waypoints"] = self.sm.mgr.results
         self.logger.write("summary", t=self.t, **self.summary)
@@ -356,6 +418,8 @@ class MissionRunner:
             "events": list(self.events)[-30:],
             "mission_complete": self.sm.mission_complete,
             "nav_source": self.nav_source,
+            "floor_map": None if self.map_matcher is None else {
+                "mode": "repeat" if self.floor_map is not None else "teach", **self.map_stats},
             "vio": None if self.fusion is None else {
                 "tracking": self.t - self.vio_state["last_t"] < 0.5, "quality": self.vio_state["quality"],
                 "resets": self.vio_state["reset"], "corr_std": round(self.fusion.correction_std, 3),
@@ -376,10 +440,15 @@ class MissionRunner:
 def build_sim_runner(mission_name: str = "investor_demo", config_path: str | None = None,
                      log_path: str | Path | None = "auto", landmark_correction: bool = True,
                      annotate: bool = True, fault_schedule=None, overrides: dict | None = None,
-                     seed: int | None = None, nav_source: str | None = None) -> MissionRunner:
+                     seed: int | None = None, nav_source: str | None = None,
+                     floor_map: str | None = None, teach_out: str | None = None) -> MissionRunner:
     cfg = load_sim_config(config_path, overrides)
     if nav_source:
         cfg["nav_source"] = nav_source
+    if floor_map:
+        cfg["map_matching"]["map"] = floor_map
+    if teach_out:
+        cfg["map_matching"]["teach_out"] = teach_out
     if seed is not None:
         cfg["seed"] = seed
     mission = Mission.load(mission_name)

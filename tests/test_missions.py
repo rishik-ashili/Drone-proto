@@ -49,3 +49,12 @@ def test_vio_mission_survives_tracking_loss():
     assert r.sm.state == State.LANDED
     assert s["vio_resets"] >= 1
     assert s["est_error_max_m"] < 0.5
+
+
+def test_floor_map_repeat_flight_without_landmarks(tmp_path):
+    teach = str(tmp_path / "arena.npz")
+    fly("investor_demo", seed=5, teach_out=teach)
+    r, s, _ = fly("investor_demo", seed=200, landmark_correction=False, floor_map=teach)
+    assert r.sm.state == State.LANDED
+    assert s["map_fixes"] > 20
+    assert s["reach_error_mean_m"] < 0.25   # vs ~0.55 m on optical flow alone

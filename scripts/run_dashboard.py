@@ -28,10 +28,11 @@ def main() -> None:
     ap.add_argument("--no-correction", action="store_true", help="disable landmark fixes (dead reckoning)")
     ap.add_argument("--no-log", action="store_true")
     ap.add_argument("--nav-source", choices=["flow", "vio"], default=None)
+    ap.add_argument("--floor-map", action="store_true", help="use the taught floor map maps/<world>.npz")
     ap.add_argument("--open", action="store_true", help="open the browser")
     a = ap.parse_args()
     app = SimApp(a.mission, a.config, a.speed, not a.no_correction, a.autostart, log=not a.no_log,
-                 nav_source=a.nav_source)
+                 nav_source=a.nav_source, floor_map=a.floor_map)
     if a.open:  # give the server a moment to start listening
         threading.Timer(1.5, webbrowser.open, args=(f"http://localhost:{a.port}",)).start()
     serve(app, a.host, a.port)

@@ -43,6 +43,7 @@ class CameraFrame:
     # vehicle state at exposure time, as known by the companion (estimate)
     att: np.ndarray
     range_m: float
+    pos: np.ndarray | None = None   # estimated position at exposure (latency compensation)
 
 
 class VehicleInterface(ABC):

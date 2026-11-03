@@ -24,11 +24,12 @@ from urllib.parse import parse_qs, urlparse
 
 import cv2
 
-from gdnav.common.config import MISSIONS_DIR
+from gdnav.common.config import MISSIONS_DIR, REPO_ROOT
 from gdnav.runner import MissionRunner, build_sim_runner
 from gdnav.sim.sim_vehicle import FAULTS
 
 STATIC = Path(__file__).parent / "static"
+MAPS_DIR = REPO_ROOT / "maps"
 
 
 class SimApp:
@@ -36,9 +37,10 @@ class SimApp:
 
     def __init__(self, mission: str, config: str | None = None, speed: float = 1.0,
                  landmark_correction: bool = True, autostart: bool = False, log: bool = True,
-                 nav_source: str | None = None):
+                 nav_source: str | None = None, floor_map: bool = False):
         self.mission_name = mission
         self.nav_source = nav_source
+        self.use_floor_map = floor_map
         self.config = config
         self.speed = speed
         self.landmark_correction = landmark_correction
@@ -54,8 +56,20 @@ class SimApp:
         threading.Thread(target=self._loop, daemon=True, name="sim").start()
 
     def _build(self) -> MissionRunner:
+        fmap = self.floor_map_path() if self.use_floor_map else None
         return build_sim_runner(self.mission_name, self.config, "auto" if self.log else None,
-                                self.landmark_correction, annotate=True, nav_source=self.nav_source)
+                                self.landmark_correction, annotate=True, nav_source=self.nav_source,
+                                floor_map=str(fmap) if fmap else None)
+
+    def floor_map_path(self) -> Path | None:
+        """Taught floor map for the mission's world (scripts/run_sim.py --teach maps/<world>.npz)."""
+        from gdnav.navigation.mission import Mission
+        try:
+            world = Mission.load(self.mission_name).world
+        except FileNotFoundError:
+            return None
+        p = MAPS_DIR / f"{world}.npz"
+        return p if p.exists() else None
 
     def _encode_arena(self) -> bytes:
         tex = self.runner.world.texture
@@ -112,7 +126,9 @@ class SimApp:
                 self.runner.inject(c["fault"], c.get("duration"))
             elif cmd == "clear":
                 self.runner.clear(c["fault"])
-            elif cmd in ("reset", "mission", "correction", "nav_source"):
+            elif cmd in ("reset", "mission", "correction", "nav_source", "floor_map"):
+                if cmd == "floor_map":
+                    self.use_floor_map = bool(c["value"])
                 if cmd == "mission":
                     self.mission_name = c["value"]
                 if cmd == "nav_source":
@@ -132,6 +148,7 @@ class SimApp:
         return {"world": r.world.to_dict(), "mission": r.mission.to_dict(),
                 "faults": FAULTS, "missions": sorted(p.stem for p in MISSIONS_DIR.glob("*.yaml")),
                 "camera": r.cfg["sensors"]["camera"], "detector": r.cv.detector_name,
+                "floor_map_available": self.floor_map_path() is not None, "floor_map_on": self.use_floor_map,
                 "home": [0.0, 0.0]}
 
 
