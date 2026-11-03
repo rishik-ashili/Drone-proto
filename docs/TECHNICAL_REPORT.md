@@ -12,15 +12,19 @@ twin. That includes the Phase 3 (stereo VIO) and Phase 4 (map-based drift correc
 as behavioural models. The same companion code runs against real PX4 through MAVSDK (SITL or a
 Pixhawk on a Pi) or ROS 2 + uXRCE-DDS (Jetson). None of it has flown yet.
 
-Headline simulator results (`docs/benchmark_results.md`, investor_demo route, about 44 m, 4 landmarks, 3 pillars):
+Headline simulator results (`docs/benchmark_results.md`: mean of 3 seeds on the investor_demo route,
+about 44 m, 4 landmarks, 3 pillars):
 
-| Configuration | Mean waypoint reach error | Return-to-start error |
-|---|---|---|
-| Optical flow + IMU only (dead reckoning) | 0.55–0.59 m | 0.16–0.22 m |
-| + landmark AI (YOLO + ArUco) | 0.08 m | 0.02–0.08 m |
-| + floor-map matching, no landmarks | 0.04 m | 0.04 m |
-| Stereo VIO model only | 0.09 m | 0.18 m |
-| Stereo VIO model + landmark AI | 0.06 m | 0.08 m |
+| Configuration | Mean waypoint reach error | Return-to-start error | Max estimate error |
+|---|---|---|---|
+| Optical flow + IMU only (dead reckoning) | 0.57 m | 0.19 m | 0.86 m |
+| + landmark AI (YOLO + ArUco) | 0.09 m | 0.05 m | 0.53 m |
+| + floor-map matching, no landmarks | 0.07 m | 0.16 m | 0.17 m |
+| Stereo VIO model only | 0.07 m | 0.09 m | 0.18 m |
+| Stereo VIO model + landmark AI | 0.08 m | 0.06 m | 0.13 m |
+
+Hover drift over 60 s: 0.12 m/min on optical flow, 0.02 m/min with the floor map, and 0.01 m/min with
+the VIO model.
 
 Every failsafe in the matrix produces its specified response. Landmark detector on a held-out
 synthetic split: precision 0.97, recall 0.98, mAP50 0.99, mAP50-95 0.89. Perception runs in
@@ -159,7 +163,7 @@ of the printed landmarks are the most important missing data.
   representative, not measured. Bench logs (`analyze_ulog.py`) should replace them.
 - Camera rendering is geometric. There are no shadows, specular highlights or rolling shutter;
   Gazebo and real images will be harder.
-- The VIO numbers come from a model with assumed parameters. Its 0.013 m/min hover drift is an
+- The VIO numbers come from a model with assumed parameters. Its 0.01 m/min hover drift is an
   input assumption, not evidence that VIO is better.
 - Teach-and-repeat assumes the floor looks the same as during teaching.
 - The obstacle planner is reactive and can be trapped by concave obstacles. Collision prevention
