@@ -16,18 +16,24 @@
       "aruco_tag"
     ],
     "imgsz": 320,
-    "epochs": 30,
-    "train_minutes": 46.6,
-    "precision": 0.9733,
-    "recall": 0.9839,
-    "mAP50": 0.9938,
-    "mAP50_95": 0.8927,
+    "epochs": 12,
+    "train_minutes": 52.4,
+    "precision": 0.978,
+    "recall": 0.9771,
+    "mAP50": 0.9931,
+    "mAP50_95": 0.9031,
     "per_class_mAP50_95": {
-      "helipad": 0.916,
-      "pad_red": 0.9013,
-      "pad_blue": 0.9028,
-      "cross_yellow": 0.855,
-      "aruco_tag": 0.8884
+      "helipad": 0.9118,
+      "pad_red": 0.9122,
+      "pad_blue": 0.9264,
+      "cross_yellow": 0.8612,
+      "aruco_tag": 0.9038
     }
+  },
+  "version": "v2",
+  "external_test": {
+    "dataset": "mit_helipad test (20 images)",
+    "mAP50": 0.995,
+    "mAP50_95": 0.913
   }
 }

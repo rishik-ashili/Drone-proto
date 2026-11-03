@@ -9,6 +9,9 @@ camera intrinsics, and the estimator fuses the implied drone position.
 Classes: `helipad`, `pad_red`, `pad_blue`, `cross_yellow`, `aruco_tag`. YOLO also learns `aruco_tag`
 so it can find tags too blurred to decode. When ArUco decodes the ID, the decoded tag wins.
 
+Current model: **v2** (`models/MODEL_CARD.md`). v1 was trained on synthetic images only, and v2
+was fine-tuned with 200 MIT-licensed helipad images added.
+
 ## Pipeline
 
 | Step | Script | Output |

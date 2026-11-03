@@ -142,7 +142,7 @@ without an explicit command.
 | Training data | 1,600 synthetic images rendered by the simulator with randomised floors, light, height, tilt, blur, JPEG and distractors |
 | v1 result | 30 epochs on CPU. Held-out synthetic split: P 0.973, R 0.984, mAP50 0.994, mAP50-95 0.893 |
 | External check | 260 MIT-licensed helipad images in a different visual style: v1 scores mAP50 0.995 on their test split |
-| v2 | Fine-tuned on synthetic + external (see `models/v2`, below) |
+| v2 (in use) | Fine-tuned 12 epochs on synthetic + 200 external images. Synthetic split: mAP50-95 0.904. External helipad test: mAP50-95 0.913 (v1: 0.834). Model card: `models/MODEL_CARD.md` |
 
 The licence of Ultralytics (AGPL-3.0) matters for a proprietary product (docs/ML.md). Real images
 of the printed landmarks are the most important missing data.
