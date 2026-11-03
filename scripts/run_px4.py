@@ -31,6 +31,8 @@ def main() -> int:
     ap.add_argument("--mission", default="hello_square")
     ap.add_argument("--url", default="udp://:14540")
     ap.add_argument("--camera", default=None, help="OpenCV camera index or video file for perception")
+    ap.add_argument("--gz-camera", nargs="?", const="/gdnav/down_camera/image", default=None, metavar="TOPIC",
+                    help="use the Gazebo downward camera (./scripts/px4_sitl.sh gdnav)")
     ap.add_argument("--config", default=None)
     ap.add_argument("--timeout", type=float, default=600)
     a = ap.parse_args()
@@ -38,7 +40,11 @@ def main() -> int:
     from gdnav.interface.px4_mavsdk import Px4MavsdkVehicle
 
     frame_source = None
-    if a.camera is not None:
+    if a.gz_camera:
+        from gdnav.interface.gz_camera import GzCamera
+        frame_source = GzCamera(a.gz_camera)
+        print(f"Perception input: Gazebo camera {a.gz_camera}")
+    elif a.camera is not None:
         import cv2
         cap = cv2.VideoCapture(int(a.camera) if a.camera.isdigit() else a.camera)
 
