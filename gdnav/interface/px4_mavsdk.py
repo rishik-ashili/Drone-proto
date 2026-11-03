@@ -169,6 +169,22 @@ class Px4MavsdkVehicle(VehicleInterface):
             self._fire(self.drone.offboard.set_velocity_ned(
                 VelocityNedYaw(float(sp.vel[0]), float(sp.vel[1]), float(sp.vel[2]), yaw_deg)))
 
+    def position_mode(self) -> bool:
+        async def go():
+            await self.drone.manual_control.set_manual_control_input(0.0, 0.0, 0.5, 0.0)
+            await self.drone.manual_control.start_position_control()
+        try:
+            self._run(go())
+            return True
+        except Exception as e:  # noqa: BLE001
+            print(f"[px4] position mode failed: {e}")
+            return False
+
+    def manual_control(self, sticks) -> None:
+        # MAVSDK: x = pitch (forward), y = roll (right), z = throttle 0..1 (0.5 = hold), r = yaw
+        f, r, u, y = (float(v) for v in sticks)
+        self._fire(self.drone.manual_control.set_manual_control_input(f, r, 0.5 + 0.5 * u, y))
+
     def land(self) -> None:
         self._fire(self.drone.action.land())
 

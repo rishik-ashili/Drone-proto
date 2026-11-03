@@ -58,3 +58,21 @@ def test_floor_map_repeat_flight_without_landmarks(tmp_path):
     assert r.sm.state == State.LANDED
     assert s["map_fixes"] > 20
     assert s["reach_error_mean_m"] < 0.25   # vs ~0.55 m on optical flow alone
+
+
+def test_click_to_go_manual_and_collision_prevention():
+    import numpy as np
+    r = build_sim_runner("investor_demo", log_path=None, annotate=False, seed=1)
+    for _ in range(5):
+        r.tick()
+    assert r.goto([2.5, 0.3])                     # from the ground: take off, fly there
+    while r.sm.state != State.USER_HOLD and r.t < 40:
+        r.tick()
+    assert np.linalg.norm(r.vehicle.truth()["pos"][:2] - [2.5, 0.3]) < 0.5
+    assert r.take_control() and r.vehicle.fc.mode == "POSCTL"
+    for _ in range(120):                          # pilot pushes towards pillar_a
+        r.sticks([1.0, 0.0, 0.0, 0.0])
+        r.tick()
+    assert not r.vehicle.collisions               # CP_DIST collision prevention
+    assert r.resume()
+    assert r.sm.state not in (State.MANUAL,)

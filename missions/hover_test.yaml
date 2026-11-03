@@ -1,0 +1,9 @@
+# Position-hold drift test (plan section 10): hover 60 s over plain floor, no landmark in view.
+# The point lies on the investor_demo route, so the taught floor map (maps/indoor_arena.npz) covers it.
+name: hover_test
+world: indoor_arena
+frame: local_ned
+altitude_m: 2.0
+waypoints:
+  - {id: 1, x: 2.6, y: 0.1, hold_s: 60}
+on_finish: land

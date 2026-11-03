@@ -101,6 +101,7 @@ flight_controller:            # PX4 multicopter position controller analogue
   COM_OF_LOSS_T: 1.0          # s without setpoints before the offboard-loss failsafe
   COM_OBL_RC_ACT: hold        # hold | land
   BAT_CRIT_THR: 0.10          # PX4 lands on its own below this
+  CP_DIST: 1.0                # Collision Prevention in Position mode (m); PX4 default -1 = off
 
 estimator:                    # EKF2 analogue running "on the Pixhawk"
   accel_process_noise: 0.35

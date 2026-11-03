@@ -36,10 +36,16 @@ class State(str, Enum):
     LAND = "LAND"
     LANDED = "LANDED"
     ABORTED = "ABORTED"
+    MANUAL = "MANUAL"              # pilot flying in Position mode (RC override)
+    USER_GOTO = "USER_GOTO"        # operator clicked a point on the map
+    USER_HOLD = "USER_HOLD"        # holding at the operator's point
 
 
 FLYING_STATES = {State.TAKEOFF, State.GOTO_WAYPOINT, State.SEARCH_LANDMARK, State.ALIGN,
-                 State.NEXT_WAYPOINT, State.RETURN_TO_START, State.PRECISION_LAND, State.FAILSAFE_HOLD}
+                 State.NEXT_WAYPOINT, State.RETURN_TO_START, State.PRECISION_LAND, State.FAILSAFE_HOLD,
+                 State.MANUAL, State.USER_GOTO, State.USER_HOLD}
+MISSION_STATES = {State.TAKEOFF, State.GOTO_WAYPOINT, State.SEARCH_LANDMARK, State.ALIGN, State.NEXT_WAYPOINT,
+                  State.RETURN_TO_START, State.PRECISION_LAND}
 VISION_STATES = {State.SEARCH_LANDMARK, State.ALIGN, State.PRECISION_LAND}
 
 
@@ -105,6 +111,9 @@ class MissionStateMachine:
         self._found = False
         self.rts_result: dict | None = None
         self.mission_complete = False
+        self.user_target: np.ndarray | None = None
+        self._pending_goto: np.ndarray | None = None
+        self.telem: Telemetry | None = None
 
     # ------------------------------------------------------------ helpers
     def start(self) -> None:
@@ -114,6 +123,80 @@ class MissionStateMachine:
                 self.mission_complete = False
                 self.rts_result = None
             self._enter(State.PREFLIGHT, "mission start requested")
+
+    # ------------------------------------------------------ operator commands
+    def take_control(self) -> bool:
+        """Pilot takes over in Position mode (the RC mode switch)."""
+        if self.state == State.MANUAL:
+            return True
+        if self.state in MISSION_STATES or self.state == State.FAILSAFE_HOLD:
+            self.resume_state = self.resume_state if self.state == State.FAILSAFE_HOLD else self.state
+        elif self.state in (State.USER_GOTO, State.USER_HOLD):
+            pass  # keep the mission's resume state, if any
+        else:
+            self.resume_state = None
+        if not self.v.position_mode():
+            return False
+        self._enter(State.MANUAL, "pilot took control (Position mode)")
+        return True
+
+    def resume(self) -> bool:
+        """Hand control back to the companion: continue the mission, or hold here."""
+        if self.state not in (State.MANUAL, State.USER_GOTO, State.USER_HOLD) or self.telem is None:
+            return False
+        if self.telem.landed:
+            self._enter(State.IDLE, "on the ground - press Start mission")
+            return True
+        self._pos_sp(self.telem.pos[:2], -self.telem.pos[2])   # stream before engaging Offboard
+        if self.telem.mode != "OFFBOARD" and not self.v.start_offboard():
+            return False
+        if self.resume_state is not None:
+            if -self.telem.pos[2] > 0.5:
+                self.alt = self.mission.altitude_m
+            nxt, self.resume_state = self.resume_state, None
+            self._enter(nxt, "autonomy resumed")
+        else:
+            self.user_target = self.telem.pos[:2].copy()
+            self._enter(State.USER_HOLD, "autonomy: holding position")
+        return True
+
+    def goto_point(self, xy) -> bool:
+        """Fly to a point clicked on the map (local NED metres), then hold there."""
+        target = self.fence.clamp(np.array([xy[0], xy[1], -self.alt]))[:2]
+        if self.state in (State.IDLE, State.LANDED, State.ABORTED):
+            self._pending_goto = target
+            self.start()
+            return True
+        if self.state in (State.LAND, State.PREFLIGHT):
+            return False
+        if self.state in MISSION_STATES or self.state == State.FAILSAFE_HOLD:
+            self.resume_state = self.state if self.state != State.FAILSAFE_HOLD else self.resume_state
+        if self.state == State.MANUAL or self.telem.mode != "OFFBOARD":
+            self._pos_sp(self.telem.pos[:2], -self.telem.pos[2])
+            if not self.v.start_offboard():
+                return False
+        self.user_target = target
+        self._enter(State.USER_GOTO, f"operator target ({target[0]:.1f}, {target[1]:.1f})")
+        return True
+
+    def land_now(self) -> None:
+        if self.state in FLYING_STATES:
+            self.mgr.skip_remaining()
+            self.resume_state = None
+            self._enter(State.LAND, "operator commanded land")
+
+    def _s_manual(self, telem):
+        # the pilot flies; Position mode holds the local estimate when the sticks are centred
+        if not telem.armed and telem.landed:
+            self._enter(State.LANDED, "pilot landed")
+
+    def _s_user_goto(self, telem: Telemetry):
+        d = self._fly_to(telem, self.user_target)
+        if d < self.c["arrival_tolerance_m"] and np.linalg.norm(telem.vel[:2]) < 0.4:
+            self._enter(State.USER_HOLD, "reached operator target")
+
+    def _s_user_hold(self, telem: Telemetry):
+        self._pos_sp(self.user_target, self.alt)
 
     def _enter(self, s: State, reason: str = "") -> None:
         if s == self.state:
@@ -172,6 +255,8 @@ class MissionStateMachine:
         flying = self.state in FLYING_STATES
         action = self.health.worst_action()
 
+        if self.state == State.MANUAL:   # the pilot is in command: no companion failsafe actions
+            flying = False
         # vehicle-initiated landing (e.g. PX4 critical battery failsafe)
         if flying and telem.mode == "LAND" and self.state not in (State.LAND,) and telem.received_t >= t - 0.5:
             self._enter(State.LAND, "flight controller is landing")
@@ -226,7 +311,11 @@ class MissionStateMachine:
     def _s_takeoff(self, telem: Telemetry):
         self._pos_sp(self.home, self.alt)
         if -telem.pos[2] > self.alt - 0.15:
-            if self.mgr.done:
+            if self._pending_goto is not None:
+                self.user_target, self._pending_goto = self._pending_goto, None
+                self.resume_state = State.GOTO_WAYPOINT if not self.mgr.done else None
+                self._enter(State.USER_GOTO, "operator target after takeoff")
+            elif self.mgr.done:
                 self._finish()
             else:
                 self._enter(State.GOTO_WAYPOINT, f"to waypoint {self.mgr.current.id}")

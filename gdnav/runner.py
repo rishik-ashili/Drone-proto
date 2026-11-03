@@ -128,6 +128,22 @@ class MissionRunner:
     def start(self) -> None:
         self.sm.start()
 
+    # operator / pilot commands (dashboard)
+    def take_control(self) -> bool:
+        return self.sm.take_control()
+
+    def resume(self) -> bool:
+        return self.sm.resume()
+
+    def goto(self, xy) -> bool:
+        return self.sm.goto_point(xy)
+
+    def land_now(self) -> None:
+        self.sm.land_now()
+
+    def sticks(self, values) -> None:
+        self.vehicle.manual_control(values)
+
     def inject(self, name: str, duration: float | None = None) -> None:
         if name == "false_landmark":
             self.cv.inject_false = True
@@ -344,6 +360,7 @@ class MissionRunner:
             "nav_tick_ms_max": round(1000 * float(np.max(tw)), 2) if tw else None,
             "failsafe_responses": list(self.failsafe_responses),
             "flight_time_s": round(self.t, 1),
+            "false_positives_per_min": round(self.cv.unassociated / max(self.t / 60.0, 1e-6), 2) if self.t > 1 else None,
             "detector": self.cv.detector_name,
             "landmark_correction": self.landmark_correction,
             "nav_source": self.nav_source,
@@ -417,6 +434,7 @@ class MissionRunner:
             "metrics": self.metrics(),
             "events": list(self.events)[-30:],
             "mission_complete": self.sm.mission_complete,
+            "user_target": None if self.sm.user_target is None else [round(float(v), 2) for v in self.sm.user_target],
             "nav_source": self.nav_source,
             "floor_map": None if self.map_matcher is None else {
                 "mode": "repeat" if self.floor_map is not None else "teach", **self.map_stats},

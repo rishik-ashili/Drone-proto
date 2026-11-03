@@ -36,6 +36,7 @@ class FlightMode:
     OFFBOARD = "OFFBOARD"
     HOLD = "HOLD"              # position hold on the local estimate
     LAND = "LAND"
+    POSCTL = "POSCTL"          # pilot Position mode: sticks command velocity, centred sticks hold position
 
 
 class FlightController:
@@ -54,6 +55,13 @@ class FlightController:
         self.prev_vel_err = np.zeros(3)
         self.events: list[tuple[str, str]] = []
         self.failsafe_reason = ""
+        self.sticks = np.zeros(4)      # [forward, right, up, yaw] in -1..1 (RC / gamepad)
+        self.sticks_t = -1e9
+        self._pos_lock: np.ndarray | None = None
+        self._z_lock: float | None = None
+        self._ground_since: float | None = None
+        self.obstacle_scan = None     # (angles_body, ranges) from the distance sensor
+        self._yaw_lock = 0.0
 
     # -------------------------------------------------------------- commands
     def arm(self) -> bool:
@@ -88,6 +96,21 @@ class FlightController:
         if self.armed:
             self.mode = FlightMode.LAND
             self.events.append(("info", "Land mode"))
+
+    def position_mode(self, est_pos: np.ndarray, est_yaw: float) -> None:
+        """Pilot takes over (RC mode switch). Works without GPS: Position mode only needs
+        the local position estimate (optical flow / VIO)."""
+        if not self.armed:
+            self.arm()
+        self.mode = FlightMode.POSCTL
+        self._pos_lock = est_pos.copy()
+        self._z_lock = float(est_pos[2]) if est_pos[2] < -0.3 else None
+        self._yaw_lock = est_yaw
+        self.events.append(("info", "Position mode (pilot)"))
+
+    def set_sticks(self, sticks, t: float) -> None:
+        self.sticks = np.clip(np.asarray(sticks, float), -1.0, 1.0)
+        self.sticks_t = t
 
     def hold(self, est_pos: np.ndarray, est_yaw: float) -> None:
         self.mode = FlightMode.HOLD
@@ -128,6 +151,36 @@ class FlightController:
                 yaw_rate = self.p["MPC_YAWRAUTO_MAX"] * math.tanh(2.0 * wrap_pi(sp.yaw - yaw))
             else:
                 yaw_rate = sp.yaw_rate
+        elif self.mode == FlightMode.POSCTL:
+            st = self.sticks if t - self.sticks_t < 0.5 else np.zeros(4)  # stale input = centred sticks
+            st = np.where(np.abs(st) < 0.05, 0.0, st)
+            cy, sy = math.cos(yaw), math.sin(yaw)
+            vmax = self.p["MPC_XY_VEL_MAX"] * 0.8
+            v_fwd, v_right = st[0] * vmax, st[1] * vmax
+            vel_sp = np.array([cy * v_fwd - sy * v_right, sy * v_fwd + cy * v_right,
+                               -st[2] * self.p["MPC_Z_VEL_MAX_UP"]])
+            if on_ground and st[2] <= 0:
+                if self._ground_since is None:
+                    self._ground_since = t
+                elif t - self._ground_since > 2.0:      # COM_DISARM_LAND
+                    self.disarm()
+                    self.events.append(("info", "Landed (auto-disarm)"))
+                return 0.0, 0.0, 0.0, 0.0
+            self._ground_since = None
+            if abs(st[0]) + abs(st[1]) == 0.0:   # sticks centred: brake, then hold the position
+                if self._pos_lock is None and float(np.linalg.norm(vel[:2])) < 0.3:
+                    self._pos_lock = pos.copy()
+                vel_sp[:2] = self._pos_to_vel(self._pos_lock, pos)[:2] if self._pos_lock is not None else 0.0
+            else:
+                self._pos_lock = None
+            if st[2] == 0.0:                      # throttle centred: hold altitude
+                if self._z_lock is None:
+                    self._z_lock = float(pos[2])
+                vel_sp[2] = self.p["MPC_Z_P"] * (self._z_lock - pos[2])
+            else:
+                self._z_lock = None
+            yaw_rate = st[3] * self.p["MPC_YAWRAUTO_MAX"]
+            vel_sp[:2] = self._collision_prevention(vel_sp[:2], yaw)
         elif self.mode == FlightMode.HOLD:
             vel_sp = self._pos_to_vel(self.hold_pos, pos)
             yaw_rate = 1.0 * wrap_pi(self.hold_yaw - yaw)
@@ -170,6 +223,24 @@ class FlightController:
         roll = float(np.clip(roll, -self.max_tilt, self.max_tilt))
         thrust /= max(0.5, math.cos(roll) * math.cos(pitch))
         return float(np.clip(thrust, 0.0, self.max_thrust)), roll, pitch, yaw_rate
+
+    def _collision_prevention(self, v_xy: np.ndarray, yaw: float) -> np.ndarray:
+        """PX4 Collision Prevention (CP_DIST): limit the pilot's velocity towards obstacles seen
+        by the distance sensor so the drone stops CP_DIST short of them."""
+        cp = self.p.get("CP_DIST", -1.0)
+        if cp is None or cp <= 0 or self.obstacle_scan is None:
+            return v_xy
+        angles, ranges = self.obstacle_scan
+        v = np.array(v_xy, float)
+        for a, r in zip(angles, ranges):
+            if r >= 5.9:
+                continue
+            u = np.array([math.cos(yaw + a), math.sin(yaw + a)])
+            allowed = max(0.0, r - cp) * 0.8      # m/s towards the obstacle, braking to zero at CP_DIST
+            comp = float(v @ u)
+            if comp > allowed:
+                v -= (comp - allowed) * u
+        return v
 
     def _pos_to_vel(self, target: np.ndarray, pos: np.ndarray) -> np.ndarray:
         e = target - pos

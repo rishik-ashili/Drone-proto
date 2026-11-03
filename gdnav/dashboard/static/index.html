@@ -95,7 +95,13 @@
 
   <section class="panel map" aria-label="Top-down map">
     <div class="panel-head"><h2>Top-down map · local NED frame</h2><span class="pill" id="planner">avoidance idle</span></div>
-    <canvas id="map" class="mapcanvas"></canvas>
+    <canvas id="map" class="mapcanvas" title="Click to send the drone there (GPS-free, local frame)"></canvas>
+    <div class="pilot">
+      <button id="btnManual" title="Like flipping the RC mode switch to Position mode">🎮 Take control</button>
+      <button id="btnResume">Resume autonomy</button>
+      <button id="btnLand">Land now</button>
+      <span class="hint" id="pilotHint">Click the map to fly there · Take control to fly with keyboard / gamepad</span>
+    </div>
   </section>
 
   <aside class="side">

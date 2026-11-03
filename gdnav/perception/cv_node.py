@@ -57,6 +57,7 @@ class CvNode:
         self.inject_false = False
         self.frames = 0
         self.total_dets = 0
+        self.unassociated = 0     # detections that match no mapped landmark = false positives
         self._fps_t: list[float] = []
 
     def _make_detector(self, cfg):
@@ -94,6 +95,7 @@ class CvNode:
         for d in dets:
             ob = self._observe(d, frame, est_pos)
             if ob is None:
+                self.unassociated += 1
                 continue
             prev = obs_by_name.get(ob.name)
             if prev is None or ob.std < prev.std:

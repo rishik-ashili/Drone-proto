@@ -163,6 +163,7 @@ class SimVehicle(VehicleInterface):
         if self.t >= self._next_depth:
             self._next_depth += self.depth_period
             self.depth = s.depth_scan(q)
+            self.fc.obstacle_scan = self.depth
 
         self.t += dt
         self._step += 1
@@ -221,6 +222,14 @@ class SimVehicle(VehicleInterface):
     def land(self) -> None:
         if self.link_up:
             self.fc.land()
+
+    # the RC link goes straight to the flight controller, independent of the companion link
+    def position_mode(self) -> bool:
+        self.fc.position_mode(self.ekf.pos, self.ekf.yaw)
+        return True
+
+    def manual_control(self, sticks) -> None:
+        self.fc.set_sticks(sticks, self.t)
 
     def hold(self) -> None:
         if self.link_up:

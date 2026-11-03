@@ -17,6 +17,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+
+import numpy as np
 import time
 from pathlib import Path
 
@@ -26,19 +28,30 @@ from gdnav.navigation.state_machine import State  # noqa: E402
 from gdnav.runner import build_sim_runner  # noqa: E402
 
 
-def fly(mission: str, seed: int, correction: bool = True, faults=None, timeout: float = 400) -> dict:
+def fly(mission: str, seed: int, correction: bool = True, faults=None, timeout: float = 400, **kw) -> dict:
     r = build_sim_runner(mission, log_path=None, landmark_correction=correction, annotate=False,
-                         fault_schedule=faults, seed=seed)
+                         fault_schedule=faults, seed=seed, **kw)
     r.start()
     states = set()
+    hold: list = []
     while r.sm.state not in (State.LANDED, State.ABORTED) and r.t < timeout:
         r.tick()
         states.add(r.sm.state.value)
+        if r.sm.state == State.NEXT_WAYPOINT:
+            hold.append((r.vehicle.truth()["pos"][:2].copy(), r.sm.mgr.current.xy.copy()))
     s = r.finish()
     s["final_state"] = r.sm.state.value
     s["states_visited"] = sorted(states)
     s["seed"] = seed
     s["events"] = [e for e in r.events if e["type"] in ("state", "fault", "landed", "px4")]
+    settle = int(10.0 / r.dt)
+    if len(hold) > settle + 20:  # position hold during the waypoint dwell, after 10 s of settling
+        h = np.array([p for p, _ in hold[settle:]])
+        target = hold[-1][1]
+        minutes = len(h) * r.dt / 60.0
+        s["hold_wander_m"] = round(float(np.linalg.norm(h - h.mean(0), axis=1).max()), 3)
+        s["hold_drift_m_per_min"] = round(float(np.linalg.norm(h[-1] - h[0])) / minutes, 3)
+        s["hold_error_m"] = round(float(np.linalg.norm(h - target, axis=1).mean()), 3)
     r.close()
     return s
 
@@ -63,6 +76,10 @@ FAILSAFE_CASES = [
      lambda s: s["final_state"] == "LANDED"),
     ("false_landmark", [("false_landmark", 5.0, 60.0)], "false detections rejected, mission completes",
      lambda s: s["final_state"] == "LANDED" and s["waypoints_done"] == s["waypoints_total"]),
+    ("dim_lights", [("dim_lights", 10.0, 40.0)], "mission completes with lights at 25 %",
+     lambda s: s["final_state"] == "LANDED" and s["waypoints_done"] == s["waypoints_total"]),
+    ("vio_tracking_loss", [("vio_tracking_loss", 20.0, 6.0)], "VIO lost 6 s, flow fallback, re-anchors",
+     lambda s: s["final_state"] == "LANDED" and s["est_error_max_m"] < 0.5, {"nav_source": "vio"}),
     ("wind_gust", [("wind_gust", 15.0, 20.0)], "mission completes in 2.9 m/s gusts",
      lambda s: s["final_state"] == "LANDED" and s["collisions"] == 0),
 ]
@@ -114,12 +131,50 @@ def main() -> None:
     md += [f"| {on['seed']} | {fmt(on['est_error_max_m'])} | {fmt(off['est_error_max_m'])} | {fmt(on['reach_error_mean_m'])} | "
            f"{fmt(off['reach_error_mean_m'])} | {fmt(on.get('rts_error_m'))} | {fmt(off.get('rts_error_m'))} |" for on, off in cmp_rows]
 
+    print("Navigation sources")
+    fmap = ROOT / "maps" / "indoor_arena.npz"
+    combos = [("Optical flow only", dict(correction=False)),
+              ("Optical flow + landmark AI", dict()),
+              ("Optical flow + floor map (no landmarks)", dict(correction=False, floor_map=str(fmap))),
+              ("Stereo VIO only", dict(correction=False, nav_source="vio")),
+              ("Stereo VIO + landmark AI", dict(nav_source="vio"))]
+    md += ["", "## Navigation sources (Phase 1-4 capabilities, same seeds)", "",
+           f"Mean of {ncmp} runs of investor_demo. Floor map: taught on a separate flight (`maps/indoor_arena.npz`).", "",
+           "| configuration | reach error mean (m) | reach error max (m) | RTS error (m) | estimate error max (m) |",
+           "|---|---|---|---|---|"]
+    res["nav_sources"] = {}
+    for label, kw in combos:
+        if "floor_map" in kw and not fmap.exists():
+            continue
+        runs = [fly("investor_demo", seed=200 + i, **kw) for i in range(ncmp)]
+        res["nav_sources"][label] = runs
+        avg = lambda k: sum(r[k] for r in runs if r.get(k) is not None) / max(1, sum(1 for r in runs if r.get(k) is not None))
+        mx = lambda k: max(r[k] for r in runs if r.get(k) is not None)
+        md.append(f"| {label} | {avg('reach_error_mean_m'):.2f} | {mx('reach_error_max_m'):.2f} | "
+                  f"{avg('rts_error_m'):.2f} | {mx('est_error_max_m'):.2f} |")
+        print(f"  {label}")
+
+    print("Position-hold drift")
+    md += ["", "## Position-hold drift (60 s hover over plain floor, plan section 10)", "",
+           "Measured on the true position after 10 s of settling: wander = largest distance from the mean, "
+           "drift = start-to-end movement per minute, error = mean distance from the commanded point.", "",
+           "| navigation source | wander (m) | drift (m/min) | mean error from point (m) |", "|---|---|---|---|"]
+    res["hold"] = {}
+    for label, kw in [("Optical flow", dict(correction=False)), ("Optical flow + floor map", dict(correction=False, floor_map=str(fmap))),
+                      ("Stereo VIO", dict(correction=False, nav_source="vio"))]:
+        if "floor_map" in kw and not fmap.exists():
+            continue
+        s = fly("hover_test", seed=400, **kw)
+        res["hold"][label] = s
+        md.append(f"| {label} | {fmt(s.get('hold_wander_m'))} | {fmt(s.get('hold_drift_m_per_min'))} | "
+                  f"{fmt(s.get('hold_error_m'))} |")
+
     print("Failsafe matrix")
     md += ["", "## Failsafes (fault injection)", "", "| fault | expected | response | response time (s) | result |",
            "|---|---|---|---|---|"]
     res["failsafes"] = []
-    for name, sched, expect, check in FAILSAFE_CASES:
-        s = fly("investor_demo", seed=300, faults=sched)
+    for name, sched, expect, check, *opts in FAILSAFE_CASES:
+        s = fly("investor_demo", seed=300, faults=sched, **(opts[0] if opts else {}))
         ok = bool(check(s))
         resp = s["failsafe_responses"][0] if s["failsafe_responses"] else {}
         res["failsafes"].append({"case": name, "pass": ok, "summary": s})
@@ -127,6 +182,8 @@ def main() -> None:
                   f"{'PASS' if ok else 'FAIL'} ({s['final_state']}, {s['waypoints_done']}/{s['waypoints_total']} WPs) |")
         print(f"  {name:28s} {'PASS' if ok else 'FAIL'}")
 
+    md += ["", f"False positives reaching the map association: {p2[0].get('false_positives_per_min')} per minute "
+           "(all were rejected: none matched a mapped landmark)."]
     md += ["", f"Total wall time: {time.time() - t0:.0f} s. Detector: {p2[0]['detector']}."]
     out_md = ROOT / "docs" / "benchmark_results.md"
     out_md.parent.mkdir(exist_ok=True)

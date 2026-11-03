@@ -7,6 +7,7 @@ const css = (name) => getComputedStyle(document.documentElement).getPropertyValu
 const COL = { true: css('--true'), est: css('--est'), dr: css('--dr'), err: css('--err'), warn: css('--warn') };
 const FLOW = ['IDLE', 'PREFLIGHT', 'TAKEOFF', 'GOTO_WAYPOINT', 'SEARCH_LANDMARK', 'ALIGN', 'NEXT_WAYPOINT',
   'RETURN_TO_START', 'PRECISION_LAND', 'LAND', 'LANDED'];
+const OPERATOR_STATES = ['MANUAL', 'USER_GOTO', 'USER_HOLD'];
 
 let world = null;
 let snap = null;
@@ -327,6 +328,42 @@ function animate(now) {
   requestAnimationFrame(animate);
 }
 
+// ------------------------------------------------------------------ pilot / operator
+// Keyboard: W/S forward/back, A/D left/right, R/F up/down, Q/E yaw.  Gamepad (Mode 2):
+// left stick = throttle + yaw, right stick = pitch + roll.
+const keys = new Set();
+const typing = () => ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+window.addEventListener('keydown', (e) => { if (!typing()) { keys.add(e.key.toLowerCase()); if (snap && snap.state === 'MANUAL' && 'wasdrfqe'.includes(e.key.toLowerCase())) e.preventDefault(); } });
+window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+const k = (a, b) => (keys.has(a) ? 1 : 0) - (keys.has(b) ? 1 : 0);
+const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v);
+
+function readSticks() {
+  let st = [k('w', 's'), k('d', 'a'), k('r', 'f'), k('e', 'q')];
+  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  if (pads.length) {
+    const a = pads[0].axes;  // standard mapping: 0/1 left stick, 2/3 right stick
+    const gp = [-dz(a[3] || 0), dz(a[2] || 0), -dz(a[1] || 0), dz(a[0] || 0)];
+    st = st.map((v, i) => (v !== 0 ? v : gp[i]));
+  }
+  return st;
+}
+setInterval(() => {
+  if (!snap || snap.state !== 'MANUAL') return;
+  api('sticks', { value: readSticks() });
+}, 100);
+$('btnManual').onclick = () => api('take_control');
+$('btnResume').onclick = () => api('resume_autonomy');
+$('btnLand').onclick = () => api('land');
+let mapXform = null;
+$('map').addEventListener('click', (ev) => {
+  if (!mapXform) return;
+  const r = $('map').getBoundingClientRect();
+  const [n, e] = mapXform(ev.clientX - r.left, ev.clientY - r.top);
+  api('goto', { value: [n, e] });
+});
+
 // ------------------------------------------------------------------ 2D map
 function drawMap() {
   const cv = $('map');
@@ -341,6 +378,7 @@ function drawMap() {
   const s = Math.min(W / (ymax - ymin), H / (xmax - xmin));
   const ox = (W - s * (ymax - ymin)) / 2, oy = (H - s * (xmax - xmin)) / 2;
   const P = (n, e) => [ox + (e - ymin) * s, oy + (xmax - n) * s];
+  mapXform = (px, py) => [xmax - (py - oy) / s, ymin + (px - ox) / s];
   if (arenaImg && arenaImg.complete) {
     ctx.globalAlpha = 0.85;
     ctx.drawImage(arenaImg, ox, oy, s * (ymax - ymin), s * (xmax - xmin));
@@ -380,6 +418,12 @@ function drawMap() {
       ctx.beginPath(); fp.forEach((p, k) => { const q = P(p[0], p[1]); k ? ctx.lineTo(...q) : ctx.moveTo(...q); });
       ctx.fill(); ctx.stroke();
     }
+  }
+  if (snap.user_target && ['USER_GOTO', 'USER_HOLD'].includes(snap.state)) {
+    const [tx, ty] = P(snap.user_target[0], snap.user_target[1]);
+    ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(tx, ty, 10, 0, Math.PI * 2); ctx.moveTo(tx - 15, ty); ctx.lineTo(tx + 15, ty);
+    ctx.moveTo(tx, ty - 15); ctx.lineTo(tx, ty + 15); ctx.stroke();
   }
   const dot = (pos, color, r) => { const [x, y] = P(pos[0], pos[1]); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
   if (snap.dr && $('showDr').checked) dot(snap.dr.pos, COL.dr, 4.5);
@@ -442,6 +486,11 @@ function updatePanels() {
   badge.textContent = s.state.replaceAll('_', ' ');
   badge.className = 'state-badge' + (['FAILSAFE_HOLD', 'ABORTED'].includes(s.state) ? ' alert' : s.state === 'LANDED' ? ' done' : '');
   $('btnPause').textContent = s.paused ? 'Resume' : 'Pause';
+  const manual = s.state === 'MANUAL';
+  $('btnManual').classList.toggle('on', manual);
+  $('pilotHint').textContent = manual
+    ? 'PILOT IN CONTROL (Position mode, no GPS): W/S fwd-back · A/D left-right · R/F up-down · Q/E yaw · or gamepad'
+    : 'Click the map to fly there · Take control to fly with keyboard / gamepad';
   $('speed').value = String(s.speed);
   $('correction').checked = s.correction;
   if (document.activeElement !== $('navSource')) $('navSource').value = s.nav_source || 'flow';
@@ -481,7 +530,8 @@ function updatePanels() {
   // state machine
   const idx = FLOW.indexOf(s.state);
   $('states').innerHTML = FLOW.map((st, i) => `<span class="${st === s.state ? 'active' : i < idx ? 'done' : ''}">${st.replaceAll('_', ' ')}</span>`).join('') +
-    `<span class="fs ${s.state === 'FAILSAFE_HOLD' ? 'active' : ''}">FAILSAFE HOLD</span>`;
+    `<span class="fs ${s.state === 'FAILSAFE_HOLD' ? 'active' : ''}">FAILSAFE HOLD</span>` +
+    OPERATOR_STATES.map((st) => `<span class="${st === s.state ? 'active' : ''}">${st.replace('_', ' ')}</span>`).join('');
   $('wpBody').innerHTML = world.mission.waypoints.map((w, i) => {
     const r = s.wp_results[i];
     let st = '<span class="muted">pending</span>';
@@ -532,6 +582,9 @@ function captionFor(s, ev) {
     LAND: 'Landing.',
     LANDED: `Landed. Return-to-start error <b>${fmt(s.metrics.rts_error_m)}</b> after ${fmt(s.metrics.distance_m, 1)} flown.`,
     ABORTED: `<span class="bad">Aborted:</span> ${ev.msg}`,
+    MANUAL: '<b>Pilot in control</b> — Position mode holds the drone on its GPS-free estimate when the sticks are centred.',
+    USER_GOTO: 'Flying to the point you clicked — local frame, no GPS, avoiding obstacles.',
+    USER_HOLD: 'Holding at your point. Click again to move, or <b>Resume autonomy</b> to continue the mission.',
   };
   return map[s.state] || ev.msg;
 }

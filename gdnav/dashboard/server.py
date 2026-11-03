@@ -122,6 +122,18 @@ class SimApp:
                 self.paused = False
             elif cmd == "speed":
                 self.speed = float(c.get("value", 1.0))
+            elif cmd == "take_control":
+                self.paused = False
+                return {"ok": self.runner.take_control()}
+            elif cmd == "resume_autonomy":
+                return {"ok": self.runner.resume()}
+            elif cmd == "goto":
+                self.paused = False
+                return {"ok": self.runner.goto([float(v) for v in c["value"]])}
+            elif cmd == "land":
+                self.runner.land_now()
+            elif cmd == "sticks":
+                self.runner.sticks([float(v) for v in c["value"]])
             elif cmd == "inject":
                 self.runner.inject(c["fault"], c.get("duration"))
             elif cmd == "clear":

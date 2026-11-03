@@ -81,6 +81,13 @@ class VehicleInterface(ABC):
         Backends without a velocity channel fall back to a position fix."""
         return self.send_vision_position(t, pos_xy, pos_std, yaw)
 
+    def position_mode(self) -> bool:
+        """Switch to pilot Position mode (as flipping the RC mode switch would)."""
+        return False
+
+    def manual_control(self, sticks) -> None:
+        """Pilot stick input [forward, right, up, yaw], each -1..1."""
+
     def vio_samples(self) -> list:
         """VIO odometry samples since the last call (simulator; on the Jetson they come from ROS 2)."""
         return []
