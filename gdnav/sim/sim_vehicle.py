@@ -17,6 +17,7 @@ from gdnav.sim.estimator import PositionEstimator
 from gdnav.sim.flight_controller import FlightController, FlightMode, Setpoint
 from gdnav.sim.quadrotor import Quadrotor
 from gdnav.sim.sensors import SensorSuite
+from gdnav.sim.vio import VioSensor
 from gdnav.sim.world import World
 
 FAULTS = {
@@ -28,6 +29,7 @@ FAULTS = {
     "wind_gust": "Strong wind gust",
     "low_battery": "Battery drops to 22 %",
     "false_landmark": "Inject false-positive detections",
+    "vio_tracking_loss": "Stereo VIO loses tracking",
 }
 
 
@@ -63,6 +65,11 @@ class SimVehicle(VehicleInterface):
         self.frame: CameraFrame | None = None
         self.frame_count = 0
         self.depth: tuple[np.ndarray, np.ndarray] | None = None
+        self.vio = VioSensor(cfg["vio"], np.random.default_rng(cfg.get("seed", 0) + 7),
+                             self.quad.p, start_yaw)
+        self.vio_period = 1.0 / cfg["vio"]["rate_hz"]
+        self._next_vio = 0.0
+        self._ev_reset_counter = 0
         self.wind = np.array(cfg["wind"]["mean"], float)
         self._gust = np.zeros(2)
         self.faults: dict[str, float] = {}   # name -> sim time injected
@@ -78,11 +85,16 @@ class SimVehicle(VehicleInterface):
         self.faults[name] = self.t
         if name == "low_battery":
             self.quad.battery.set_remaining(min(self.quad.battery.remaining, 0.22))
-        self.sensors.flow_degraded = "featureless_floor" in self.faults
+        self._apply_faults()
 
     def clear(self, name: str) -> None:
         self.faults.pop(name, None)
+        self._apply_faults()
+
+    def _apply_faults(self) -> None:
         self.sensors.flow_degraded = "featureless_floor" in self.faults
+        self.vio.lost = "vio_tracking_loss" in self.faults
+        self.vio.degraded = "dim_lights" in self.faults
 
     @property
     def link_up(self) -> bool:
@@ -144,6 +156,10 @@ class SimVehicle(VehicleInterface):
         if self.t >= self._next_cam:
             self._next_cam += self.cam_period
             self._capture()
+        if self.t >= self._next_vio:
+            self._next_vio += self.vio_period
+            self.vio.step(self.t, q.p, q.v, q.att[2], self.vio_period)
+            self.vio.sample(self.t, q.v, q.att[2])
         if self.t >= self._next_depth:
             self._next_depth += self.depth_period
             self.depth = s.depth_scan(q)
@@ -214,6 +230,21 @@ class SimVehicle(VehicleInterface):
         if not self.link_up:
             return False
         return self.ekf.update_external_vision(self.t, pos_xy, std, yaw, yaw_std=math.radians(1.5))
+
+    def send_odometry(self, t, pos_xy, yaw, vel_xy, pos_std, yaw_std, vel_std, reset_counter=0) -> bool:
+        if not self.link_up:
+            return False
+        if reset_counter != self._ev_reset_counter:  # EKF2 resets to the new EV pose
+            self._ev_reset_counter = reset_counter
+            self.ekf.reset_horizontal(np.asarray(pos_xy, float), pos_std, yaw)
+            return True
+        ok = self.ekf.update_external_vision(self.t, pos_xy, pos_std, yaw, yaw_std)
+        if vel_xy is not None:
+            self.ekf.update_ev_velocity(self.t, vel_xy, vel_std)
+        return ok
+
+    def vio_samples(self) -> list:
+        return self.vio.drain()
 
     def latest_frame(self) -> CameraFrame | None:
         return self.frame

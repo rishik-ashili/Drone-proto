@@ -79,6 +79,10 @@ class HealthMonitor:
             self._set(False, "vehicle_failsafe", "", "", now)
         return self.faults
 
+    def report(self, name: str, active: bool, action: str, msg: str, now: float) -> None:
+        """Faults detected outside evaluate() (e.g. VIO tracking)."""
+        self._set(active, name, action, msg, now)
+
     def worst_action(self) -> str:
         best = "none"
         for f in self.faults.values():

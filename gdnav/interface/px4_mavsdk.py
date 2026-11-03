@@ -33,11 +33,13 @@ from gdnav.sim.flight_controller import Setpoint
 try:  # gRPC MAVSDK-Python API: 'mavsdk-grpc' (new name) or 'mavsdk<4' (old name)
     try:
         from mavsdk_grpc import System
-        from mavsdk_grpc.mocap import AngleBody, Covariance, PositionBody, VisionPositionEstimate
+        from mavsdk_grpc.mocap import (AngleBody, AngularVelocityBody, Covariance, Odometry, PositionBody,
+                                       Quaternion, SpeedBody, VisionPositionEstimate)
         from mavsdk_grpc.offboard import OffboardError, PositionNedYaw, VelocityNedYaw
     except ImportError:
         from mavsdk import System
-        from mavsdk.mocap import AngleBody, Covariance, PositionBody, VisionPositionEstimate
+        from mavsdk.mocap import (AngleBody, AngularVelocityBody, Covariance, Odometry, PositionBody,
+                                  Quaternion, SpeedBody, VisionPositionEstimate)
         from mavsdk.offboard import OffboardError, PositionNedYaw, VelocityNedYaw
 except ImportError:  # pragma: no cover - optional dependency
     System = None
@@ -186,6 +188,34 @@ class Px4MavsdkVehicle(VehicleInterface):
                                      AngleBody(float(tl.att[0]), float(tl.att[1]), yaw_v), Covariance(cov), 0)
         self._fire(self.drone.mocap.set_vision_position_estimate(msg))
         return True  # EKF2 gating happens on the Pixhawk; result is not reported back
+
+    def send_odometry(self, t, pos_xy, yaw, vel_xy, pos_std, yaw_std, vel_std, reset_counter=0) -> bool:
+        """MAVLink ODOMETRY (MOCAP_NED pose, velocity in the body FRD frame) for VIO."""
+        tl = self.telemetry()
+        roll, pitch = float(tl.att[0]), float(tl.att[1])
+        cr, sr, cp, sp = math.cos(roll / 2), math.sin(roll / 2), math.cos(pitch / 2), math.sin(pitch / 2)
+        cy, sy = math.cos(yaw / 2), math.sin(yaw / 2)
+        q = Quaternion(cr * cp * cy + sr * sp * sy, sr * cp * cy - cr * sp * sy,
+                       cr * sp * cy + sr * cp * sy, cr * cp * sy - sr * sp * cy)
+        nan = float("nan")
+        if vel_xy is not None:  # world NED -> body FRD (heading only; tilt is small)
+            c, s = math.cos(yaw), math.sin(yaw)
+            vb = SpeedBody(c * vel_xy[0] + s * vel_xy[1], -s * vel_xy[0] + c * vel_xy[1], float(tl.vel[2]))
+        else:
+            vb = SpeedBody(nan, nan, nan)
+        pc = [nan] * 21
+        pc[0] = pc[6] = float(pos_std) ** 2
+        pc[11] = 0.05 ** 2
+        pc[15] = pc[18] = 0.05 ** 2
+        pc[20] = float(yaw_std) ** 2
+        vc = [nan] * 21
+        vc[0] = vc[6] = vc[11] = float(vel_std) ** 2
+        msg = Odometry(int(time.time() * 1e6), Odometry.MavFrame.MOCAP_NED,
+                       PositionBody(float(pos_xy[0]), float(pos_xy[1]), float(tl.pos[2])), q, vb,
+                       AngularVelocityBody(nan, nan, nan), Covariance(pc), Covariance(vc),
+                       int(reset_counter), 0, 90)
+        self._fire(self.drone.mocap.set_odometry(msg))
+        return True
 
     def latest_frame(self) -> CameraFrame | None:
         return self._frame

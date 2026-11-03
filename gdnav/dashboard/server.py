@@ -35,8 +35,10 @@ class SimApp:
     """Owns the simulation thread and the latest snapshot."""
 
     def __init__(self, mission: str, config: str | None = None, speed: float = 1.0,
-                 landmark_correction: bool = True, autostart: bool = False, log: bool = True):
+                 landmark_correction: bool = True, autostart: bool = False, log: bool = True,
+                 nav_source: str | None = None):
         self.mission_name = mission
+        self.nav_source = nav_source
         self.config = config
         self.speed = speed
         self.landmark_correction = landmark_correction
@@ -53,7 +55,7 @@ class SimApp:
 
     def _build(self) -> MissionRunner:
         return build_sim_runner(self.mission_name, self.config, "auto" if self.log else None,
-                                self.landmark_correction, annotate=True)
+                                self.landmark_correction, annotate=True, nav_source=self.nav_source)
 
     def _encode_arena(self) -> bytes:
         tex = self.runner.world.texture
@@ -110,9 +112,11 @@ class SimApp:
                 self.runner.inject(c["fault"], c.get("duration"))
             elif cmd == "clear":
                 self.runner.clear(c["fault"])
-            elif cmd in ("reset", "mission", "correction"):
+            elif cmd in ("reset", "mission", "correction", "nav_source"):
                 if cmd == "mission":
                     self.mission_name = c["value"]
+                if cmd == "nav_source":
+                    self.nav_source = c["value"]
                 if cmd == "correction":
                     self.landmark_correction = bool(c["value"])
                 self.runner.close()

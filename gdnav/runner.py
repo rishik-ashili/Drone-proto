@@ -16,6 +16,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from gdnav.bridge.landmark_vio_fusion import LandmarkVioFusion
 from gdnav.common.config import LOGS_DIR, load_sim_config
 from gdnav.common.logger import FlightLogger
 from gdnav.interface.vehicle import VehicleInterface
@@ -73,6 +74,16 @@ class MissionRunner:
         self.perc_ms: deque[float] = deque(maxlen=60)
         self.latency_ms: deque[float] = deque(maxlen=60)
         self.summary: dict | None = None
+
+        # Phase 3: stereo VIO as the primary navigation source
+        self.nav_source = cfg.get("nav_source", "flow")
+        self.fusion: LandmarkVioFusion | None = None
+        self.vio_state = {"last_t": -1.0, "quality": 0, "samples": 0, "reset": 0, "ev_resets": 0}
+        if self.nav_source == "vio":
+            tl = vehicle.telemetry()
+            vc = cfg["vio"]
+            self.fusion = LandmarkVioFusion(vc["fusion_drift_per_m"], math.radians(vc["fusion_yaw_drift_deg_per_m"]),
+                                            init=(float(tl.pos[0]), float(tl.pos[1]), float(tl.att[2])))
 
     # ----------------------------------------------------------- utilities
     def _now(self) -> float:
@@ -138,6 +149,8 @@ class MissionRunner:
             self.vehicle.fc.events.clear()
 
         telem = self.vehicle.telemetry()
+        if self.fusion is not None:
+            self._forward_vio(telem)
 
         # ---- perception
         frame = self.vehicle.latest_frame()
@@ -151,7 +164,8 @@ class MissionRunner:
             self.perc_ms.append(perc.proc_ms)
             for o in perc.observations:
                 if o.confirmed and self.landmark_correction:
-                    o.accepted = self.vehicle.send_vision_position(frame.t, o.fix_xy, o.std, o.yaw_fix)
+                    o.accepted = (self._fuse_landmark_with_vio(o) if self.fusion is not None
+                                  else self.vehicle.send_vision_position(frame.t, o.fix_xy, o.std, o.yaw_fix))
                     self.fix_stats["sent"] += 1
                     self.fix_stats["accepted" if o.accepted else "rejected"] += 1
             self.sm.observe(now, perc.observations)
@@ -167,6 +181,9 @@ class MissionRunner:
             self.sm.state == State.FAILSAFE_HOLD and self.sm.resume_state in VISION_STATES)
         self.health.evaluate(now, telem, new_frame_t, img_stats, flying, vision_needed,
                              not self.fence.breached(telem.pos))
+        if self.fusion is not None:
+            lost = flying and now - self.vio_state["last_t"] > 0.5
+            self.health.report("vio", lost, "warn", "VIO tracking lost - optical flow fallback", now)
 
         # ---- navigation
         self.sm.step(now, telem, self.vehicle.depth_scan())
@@ -181,6 +198,34 @@ class MissionRunner:
         self._tick_walls.append(time.perf_counter() - w0)
         if self.sm.state == State.LANDED and self.summary is None:
             self.finish()
+
+    # ------------------------------------------------------------------ VIO
+    def _forward_vio(self, telem) -> None:
+        """Correct every VIO sample with the landmark transform and stream it to the
+        flight controller as external-vision odometry (EKF2_EV_CTRL pos + vel + yaw)."""
+        f, vs = self.fusion, self.vio_state
+        for s in self.vehicle.vio_samples():
+            if s.reset_counter != vs["reset"]:
+                self._event("warn", f"VIO re-initialised (reset {s.reset_counter})", {})
+            p, yaw = f.on_odometry(s.pos, s.yaw, s.reset_counter,
+                                   anchor=(telem.pos, float(telem.att[2]), telem.pos_std))
+            v = f.vel_to_map(s.vel)
+            std = math.hypot(s.pos_std, f.correction_std)
+            self.vehicle.send_odometry(s.t, p[:2], yaw, v[:2], std, s.yaw_std, 0.05,
+                                       s.reset_counter + vs["ev_resets"])
+            vs.update(last_t=s.t, quality=s.quality, reset=s.reset_counter)
+            vs["samples"] += 1
+
+    def _fuse_landmark_with_vio(self, o) -> bool:
+        f = self.fusion
+        if f.last_odom is None:
+            return False
+        before = f.last_corrected[0][:2].copy()
+        ok = f.on_landmark_fix(o.fix_xy, o.std, yaw_fix=o.yaw_fix, yaw_odom=f.last_odom[1])
+        if ok and np.linalg.norm(f.last_corrected[0][:2] - before) > 0.15:
+            # a visible jump in the corrected pose: tell EKF2 via the odometry reset counter
+            self.vio_state["ev_resets"] += 1
+        return ok
 
     # --------------------------------------------------------- bookkeeping
     def _metrics(self, telem) -> None:
@@ -248,7 +293,11 @@ class MissionRunner:
             "flight_time_s": round(self.t, 1),
             "detector": self.cv.detector_name,
             "landmark_correction": self.landmark_correction,
+            "nav_source": self.nav_source,
         }
+        if self.fusion is not None:
+            m.update(vio_resets=self.vio_state["reset"], vio_samples=self.vio_state["samples"],
+                     vio_corrections=self.vio_state["ev_resets"])
         if self.sm.rts_result:
             m.update(self.sm.rts_result)
         if self.is_sim:
@@ -306,6 +355,11 @@ class MissionRunner:
             "metrics": self.metrics(),
             "events": list(self.events)[-30:],
             "mission_complete": self.sm.mission_complete,
+            "nav_source": self.nav_source,
+            "vio": None if self.fusion is None else {
+                "tracking": self.t - self.vio_state["last_t"] < 0.5, "quality": self.vio_state["quality"],
+                "resets": self.vio_state["reset"], "corr_std": round(self.fusion.correction_std, 3),
+                "fixes": self.fusion.accepted},
             "depth": None,
         }
         if tr is not None:
@@ -322,8 +376,10 @@ class MissionRunner:
 def build_sim_runner(mission_name: str = "investor_demo", config_path: str | None = None,
                      log_path: str | Path | None = "auto", landmark_correction: bool = True,
                      annotate: bool = True, fault_schedule=None, overrides: dict | None = None,
-                     seed: int | None = None) -> MissionRunner:
+                     seed: int | None = None, nav_source: str | None = None) -> MissionRunner:
     cfg = load_sim_config(config_path, overrides)
+    if nav_source:
+        cfg["nav_source"] = nav_source
     if seed is not None:
         cfg["seed"] = seed
     mission = Mission.load(mission_name)

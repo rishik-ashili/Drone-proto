@@ -3,6 +3,12 @@
 
 seed: 42
 
+# Primary navigation source fused by the estimator (plan: flow in P1-P2, VIO in P3):
+#   flow - optical flow + rangefinder + IMU; landmark fixes sent to EKF2 as external vision
+#   vio  - stereo VIO odometry as external vision (landmark fixes correct the VIO frame on the
+#          companion first, because EKF2 takes one EV stream); flow + rangefinder stay as fallback
+nav_source: flow
+
 rates_hz:
   physics: 200        # vehicle dynamics + IMU (PX4 runs its inner loops faster)
   flow: 50            # optical flow + rangefinder
@@ -52,6 +58,17 @@ sensors:
     rays: 21
     max_range_m: 6.0
     noise: 0.03
+
+vio:                          # behavioural model of RealSense/OAK-D + cuVSLAM (gdnav/sim/vio.py)
+  rate_hz: 30
+  scale_error: 0.01           # +/- fractional scale error
+  pos_rw_per_sqrt_m: 0.012    # position random walk per sqrt(metre travelled)
+  yaw_rw_deg_per_sqrt_m: 0.08
+  yaw_drift_deg_per_min: 0.6
+  pos_noise: 0.01
+  vel_noise: 0.03
+  fusion_drift_per_m: 0.02    # LandmarkVioFusion process noise
+  fusion_yaw_drift_deg_per_m: 0.3
 
 wind:
   mean: [0.3, -0.2]           # m/s north, east

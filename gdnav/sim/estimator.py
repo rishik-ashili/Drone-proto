@@ -149,6 +149,24 @@ class PositionEstimator:
         self.Py = self.Py - np.outer(K, self.Py[0, :])
         return True
 
+    def reset_horizontal(self, pos_xy: np.ndarray, std: float, yaw: float | None = None) -> None:
+        """External-vision reset (odometry reset_counter changed): jump to the new pose."""
+        self.xh[0:2] = pos_xy
+        self.Ph[0:2, :] = 0.0
+        self.Ph[:, 0:2] = 0.0
+        self.Ph[0, 0] = self.Ph[1, 1] = max(std, self.cfg["ev_min_std_m"]) ** 2
+        if yaw is not None:
+            self.xy[0] = wrap_pi(yaw)
+
+    def update_ev_velocity(self, t: float, vel_xy: np.ndarray, std: float) -> bool:
+        """External-vision velocity (VIO, EKF2_EV_CTRL bit 2), world frame."""
+        if not self.use_ev:
+            return False
+        H = np.zeros((2, 6))
+        H[0, 2] = H[1, 3] = 1.0
+        return self._kf_update(self.xh, self.Ph, np.asarray(vel_xy, float), H,
+                               np.eye(2) * std * std, self.cfg["ev_gate_sigma"])
+
     def update_external_vision(self, t: float, pos_xy: np.ndarray, std: float,
                                yaw: float | None = None, yaw_std: float = 0.05) -> bool:
         """Landmark / VIO position fix (MAVLink VISION_POSITION_ESTIMATE)."""

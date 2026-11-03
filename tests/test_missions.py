@@ -42,3 +42,10 @@ def test_low_battery_returns_to_start():
     r, s, visited = fly("investor_demo", fault_schedule=[("low_battery", 20.0, None)])
     assert State.RETURN_TO_START in visited
     assert r.sm.state == State.LANDED
+
+
+def test_vio_mission_survives_tracking_loss():
+    r, s, _ = fly("investor_demo", nav_source="vio", fault_schedule=[("vio_tracking_loss", 20.0, 5.0)])
+    assert r.sm.state == State.LANDED
+    assert s["vio_resets"] >= 1
+    assert s["est_error_max_m"] < 0.5

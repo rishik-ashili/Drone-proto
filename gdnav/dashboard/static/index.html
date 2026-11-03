@@ -28,6 +28,9 @@
         <option value="2">2×</option><option value="4">4×</option><option value="8">8×</option>
       </select>
     </label>
+    <label class="field" title="Primary navigation source fused by the flight controller">Nav
+      <select id="navSource"><option value="flow">Optical flow (P1-P2)</option><option value="vio">Stereo VIO (P3)</option></select>
+    </label>
     <label class="switch" title="Off = fly on optical flow + IMU only (no landmark fixes, alignment or precision landing)">
       <input type="checkbox" id="correction" checked><span>Vision AI</span>
     </label>

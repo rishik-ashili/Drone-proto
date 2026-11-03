@@ -47,6 +47,7 @@ $('btnReset').onclick = () => resetAll('reset');
 $('speed').onchange = (e) => api('speed', { value: parseFloat(e.target.value) });
 $('mission').onchange = (e) => resetAll('mission', { value: e.target.value });
 $('correction').onchange = (e) => resetAll('correction', { value: e.target.checked });
+$('navSource').onchange = (e) => resetAll('nav_source', { value: e.target.value });
 
 async function resetAll(cmd, extra = {}) {
   await api(cmd, extra);
@@ -437,6 +438,7 @@ function updatePanels() {
   $('btnPause').textContent = s.paused ? 'Resume' : 'Pause';
   $('speed').value = String(s.speed);
   $('correction').checked = s.correction;
+  if (document.activeElement !== $('navSource')) $('navSource').value = s.nav_source || 'flow';
   const lastState = [...s.events].reverse().find((e) => e.type === 'state');
   if (lastState && s.state !== 'IDLE') $('caption').innerHTML = captionFor(s, lastState);
 
@@ -494,6 +496,8 @@ function updatePanels() {
     ['Optical flow quality', `${s.flow_quality} / 255`, s.flow_quality < 60 && s.armed ? 'warn' : ''],
     ['Geofence', f.geofence ? 'BREACH' : 'inside', lvl('geofence')],
     ['Rangefinder', fmt(s.range), ''],
+    ...(s.vio ? [['Stereo VIO', s.vio.tracking ? `tracking · q ${s.vio.quality} · ${s.vio.resets} resets` : 'LOST · flow fallback',
+      s.vio.tracking ? (s.vio.quality < 60 ? 'warn' : '') : 'warn']] : []),
     ['PX4 failsafe', f.vehicle_failsafe ? f.vehicle_failsafe.msg.replace('PX4 failsafe: ', '') : 'none', lvl('vehicle_failsafe')],
   ];
   $('health').innerHTML = rows.map(([k, v, l]) => `<div class="hrow"><i class="dot ${l}"></i><div><span>${k}</span><b title="${v}">${v}</b></div></div>`).join('');

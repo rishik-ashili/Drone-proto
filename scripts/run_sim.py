@@ -37,6 +37,8 @@ def main() -> int:
     ap.add_argument("--config", default=None)
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--no-correction", action="store_true")
+    ap.add_argument("--nav-source", choices=["flow", "vio"], default=None,
+                    help="primary navigation source (default from config/sim.yaml)")
     ap.add_argument("--inject", action="append", default=[], metavar="FAULT@T[:DUR]")
     ap.add_argument("--log", default="auto", help="JSONL log path ('auto' = logs/<mission>_<time>.jsonl, 'none')")
     ap.add_argument("--record", default=None, help="write an MP4 video of the run")
@@ -49,7 +51,7 @@ def main() -> int:
     log = None if a.log == "none" else a.log
     runner = build_sim_runner(a.mission, a.config, log, not a.no_correction,
                               annotate=bool(a.record), fault_schedule=[parse_fault(f) for f in a.inject],
-                              seed=a.seed)
+                              seed=a.seed, nav_source=a.nav_source)
     video = None
     if a.record:
         from gdnav.tools.video import VideoComposer

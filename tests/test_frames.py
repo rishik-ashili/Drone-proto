@@ -22,3 +22,31 @@ def test_moving_forward_increases_px4_x():
     world_vel = q_rotate(q, vel)
     assert world_vel[0] > 0.99 and abs(world_vel[1]) < 1e-6
     assert np.allclose(q_rotate(q, [0, 0, 1]), [0, 0, 1])  # FRD down is NED down
+
+
+def test_landmark_vio_fusion_removes_drift():
+    from gdnav.bridge.landmark_vio_fusion import LandmarkVioFusion
+
+    f = LandmarkVioFusion(init=(0.0, 0.0, 0.0))
+    # VIO frame drifted: true map position = odom + (0.5, -0.3), heading offset 2 deg
+    drift, dyaw = np.array([0.5, -0.3]), math.radians(2.0)
+    for i in range(30):
+        p_odom = np.array([i * 0.3, 0.1 * i, -2.0])
+        f.on_odometry(p_odom, 0.0)
+        c, s = math.cos(dyaw), math.sin(dyaw)
+        true_xy = np.array([[c, -s], [s, c]]) @ p_odom[:2] + drift
+        f.on_landmark_fix(true_xy, 0.05, yaw_fix=dyaw, yaw_odom=0.0)
+    p, yaw = f.to_map(np.array([9.0, 3.0, -2.0]), 0.0)
+    c, s = math.cos(dyaw), math.sin(dyaw)
+    assert np.linalg.norm(p[:2] - (np.array([[c, -s], [s, c]]) @ [9.0, 3.0] + drift)) < 0.05
+    assert abs(yaw - dyaw) < math.radians(0.5)
+
+
+def test_fusion_reanchors_on_vio_reset():
+    from gdnav.bridge.landmark_vio_fusion import LandmarkVioFusion
+
+    f = LandmarkVioFusion()
+    f.on_odometry(np.array([5.0, 0.0, -2.0]), 0.0, reset_counter=0)
+    # VIO restarts at its origin while the flight controller says we are at (8, 1)
+    p, _ = f.on_odometry(np.zeros(3), 0.0, reset_counter=1, anchor=(np.array([8.0, 1.0, -2.0]), 0.0, 0.1))
+    assert np.allclose(p[:2], [8.0, 1.0])

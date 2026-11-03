@@ -74,6 +74,16 @@ class VehicleInterface(ABC):
         """Forward a landmark (or VIO) position fix to the flight controller's
         estimator. Returns True if the estimator accepted it."""
 
+    def send_odometry(self, t: float, pos_xy: np.ndarray, yaw: float, vel_xy: np.ndarray | None,
+                      pos_std: float, yaw_std: float, vel_std: float, reset_counter: int = 0) -> bool:
+        """Full external-vision odometry (VIO): position + heading + velocity.
+        Backends without a velocity channel fall back to a position fix."""
+        return self.send_vision_position(t, pos_xy, pos_std, yaw)
+
+    def vio_samples(self) -> list:
+        """VIO odometry samples since the last call (simulator; on the Jetson they come from ROS 2)."""
+        return []
+
     def latest_frame(self) -> CameraFrame | None:
         return None
 
