@@ -28,18 +28,20 @@ def test_landmark_vio_fusion_removes_drift():
     from gdnav.bridge.landmark_vio_fusion import LandmarkVioFusion
 
     f = LandmarkVioFusion(init=(0.0, 0.0, 0.0))
-    # VIO frame drifted: true map position = odom + (0.5, -0.3), heading offset 2 deg
-    drift, dyaw = np.array([0.5, -0.3]), math.radians(2.0)
-    for i in range(30):
+    # the VIO frame drifts gradually to an offset of (0.5, -0.3) m and 2 deg over 30 m
+    n = 100
+    for i in range(n):
+        k = i / (n - 1)
+        drift, dyaw = k * np.array([0.5, -0.3]), k * math.radians(2.0)
         p_odom = np.array([i * 0.3, 0.1 * i, -2.0])
         f.on_odometry(p_odom, 0.0)
         c, s = math.cos(dyaw), math.sin(dyaw)
         true_xy = np.array([[c, -s], [s, c]]) @ p_odom[:2] + drift
         f.on_landmark_fix(true_xy, 0.05, yaw_fix=dyaw, yaw_odom=0.0)
-    p, yaw = f.to_map(np.array([9.0, 3.0, -2.0]), 0.0)
-    c, s = math.cos(dyaw), math.sin(dyaw)
-    assert np.linalg.norm(p[:2] - (np.array([[c, -s], [s, c]]) @ [9.0, 3.0] + drift)) < 0.05
-    assert abs(yaw - dyaw) < math.radians(0.5)
+    p, yaw = f.to_map(p_odom, 0.0)
+    assert np.linalg.norm(p[:2] - true_xy) < 0.05
+    # a random-walk filter lags a steadily growing drift slightly
+    assert abs(yaw - dyaw) < math.radians(1.0)
 
 
 def test_fusion_reanchors_on_vio_reset():

@@ -27,9 +27,11 @@ from gdnav.common.geometry import rot_z, wrap_pi
 
 class LandmarkVioFusion:
     def __init__(self, drift_per_m: float = 0.02, yaw_drift_per_m: float = math.radians(0.3),
-                 gate_sigma: float = 4.0, init=(0.0, 0.0, 0.0)):
+                 gate_sigma: float = 4.0, init=(0.0, 0.0, 0.0), init_pos_std: float = 0.05,
+                 init_yaw_std: float = math.radians(3.0)):
         self.x = np.array(init, float)                 # dx, dy, dyaw
-        self.P = np.diag([1e-4, 1e-4, math.radians(0.5) ** 2])
+        # takeoff alignment between the VIO frame and the map: heading is only as good as the magnetometer
+        self.P = np.diag([init_pos_std ** 2, init_pos_std ** 2, init_yaw_std ** 2])
         self.q_pos = drift_per_m
         self.q_yaw = yaw_drift_per_m
         self.gate = gate_sigma
