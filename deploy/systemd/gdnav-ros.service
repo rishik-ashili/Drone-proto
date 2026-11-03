@@ -1,0 +1,17 @@
+# Jetson (ROS 2 + uXRCE-DDS): agent + mission node at boot. The mission starts only on
+#   ros2 service call /gdnav_mission/start std_srvs/srv/Trigger
+[Unit]
+Description=gdnav ROS 2 companion
+After=network-online.target
+
+[Service]
+Type=simple
+User=gdnav
+EnvironmentFile=/etc/gdnav/companion.env
+ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source /opt/ros_ws/install/setup.bash && \
+    ros2 launch gdnav_ros gdnav.launch.py mission:=${GDNAV_MISSION} nav_source:=${GDNAV_NAV_SOURCE} px4_port:=${GDNAV_PX4_PORT}'
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

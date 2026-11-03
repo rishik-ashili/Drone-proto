@@ -41,6 +41,7 @@ class PerceptionResult:
     image_mean: float
     image_std: float
     annotated: np.ndarray | None = None
+    image: np.ndarray | None = None      # the (undistorted) frame the detectors saw
     stats: dict = field(default_factory=dict)
 
 
@@ -50,6 +51,9 @@ class CvNode:
         self.world = world
         self.rng = rng or np.random.default_rng(1)
         self.K = camera_matrix(cam_cfg["width"], cam_cfg["height"], cam_cfg["hfov_deg"])
+        self._undistort_maps = None
+        if cam_cfg.get("calibration"):
+            self._load_calibration(cam_cfg["calibration"], (cam_cfg["width"], cam_cfg["height"]))
         self.localizer = LandmarkLocalizer(self.K)
         self.filter = TemporalFilter(cfg["temporal_frames"])
         self.aruco = ArucoDetector() if cfg.get("use_aruco", True) else None
@@ -59,6 +63,20 @@ class CvNode:
         self.total_dets = 0
         self.unassociated = 0     # detections that match no mapped landmark = false positives
         self._fps_t: list[float] = []
+
+    def _load_calibration(self, path, size) -> None:
+        """scripts/calibrate_camera.py output: K + distortion, rescaled to the frame size."""
+        import yaml
+        p = Path(path)
+        c = yaml.safe_load(open(p if p.is_absolute() else REPO_ROOT / p))
+        K = np.array(c["K"], float)
+        sx, sy = size[0] / c["width"], size[1] / c["height"]
+        K[0] *= sx
+        K[1] *= sy
+        dist = np.array(c["dist"], float)
+        self.K = K
+        if np.any(np.abs(dist) > 1e-9):
+            self._undistort_maps = cv2.initUndistortRectifyMap(K, dist, None, K, size, cv2.CV_16SC2)
 
     def _make_detector(self, cfg):
         choice = cfg.get("detector", "auto")
@@ -78,6 +96,8 @@ class CvNode:
     def process(self, frame: CameraFrame, est_pos: np.ndarray, annotate: bool = True) -> PerceptionResult:
         t0 = time.perf_counter()
         img = frame.image
+        if self._undistort_maps is not None:  # real lens: remove distortion once, then pinhole maths everywhere
+            img = cv2.remap(img, *self._undistort_maps, interpolation=cv2.INTER_LINEAR)
         dets: list[Detection] = []
         if self.aruco:
             dets += self.aruco.detect(img)
@@ -113,6 +133,7 @@ class CvNode:
         gray_small = cv2.resize(img, (80, 60))
         res = PerceptionResult(frame.t, dets, list(obs_by_name.values()), proc_ms,
                                float(gray_small.mean()), float(gray_small.std()))
+        res.image = img
         res.stats = {"fps": (len(self._fps_t) - 1) / max(1e-3, now - self._fps_t[0]) if len(self._fps_t) > 1 else 0.0,
                      "detector": self.detector_name,
                      "det_ms": getattr(self.detector, "last_ms", 0.0)}

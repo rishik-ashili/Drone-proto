@@ -53,6 +53,7 @@ sensors:
     height: 480
     hfov_deg: 80
     latency_s: 0.03
+    calibration: null         # config/camera_calibration.yaml from scripts/calibrate_camera.py (real camera)
   depth:
     fov_deg: 100
     rays: 21

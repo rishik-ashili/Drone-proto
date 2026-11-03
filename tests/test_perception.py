@@ -77,3 +77,56 @@ def test_floor_map_matching_recovers_drift(setup):
     assert fix is not None
     assert np.linalg.norm(fix.xy - true_pos[:2]) < 0.05
     assert abs(math.degrees(fix.yaw - att[2])) < 1.0
+
+
+def test_charuco_calibration_recovers_intrinsics(tmp_path):
+    """Render the printed ChArUco board through the camera model and calibrate it back."""
+    import cv2
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import calibrate_camera as cc
+    from gdnav.sim.world import World as W
+
+    img = cc.board().generateImage((700, 980), marginSize=40)
+    res = 0.035 * 5 / (700 - 80)
+    tex = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    rows, cols = tex.shape[:2]
+    w = W(name="board", x_min=-rows * res / 2, x_max=rows * res / 2, y_min=-cols * res / 2, y_max=cols * res / 2,
+          res=res, landmarks=[], obstacles=[])
+    w.texture = tex
+    cam = DownwardCamera(w, rng=np.random.default_rng(0))
+    rng = np.random.default_rng(2)
+    views = [cam.render(np.array([rng.uniform(-.08, .08), rng.uniform(-.08, .08), -rng.uniform(.35, .5)]),
+                        np.array([rng.uniform(-.35, .35), rng.uniform(-.35, .35), rng.uniform(-.4, .4)]), noise=1)
+             for _ in range(16)]
+    c = cc.calibrate(views)
+    assert abs(c["K"][0][0] - cam.K[0, 0]) / cam.K[0, 0] < 0.03
+    assert c["rms_px"] < 1.0
+
+
+def test_calibrated_distorted_camera_still_localizes(setup, tmp_path):
+    import cv2
+    import yaml
+
+    cfg, world, cam = setup
+    K = cam.K.copy()
+    dist = np.array([-0.28, 0.08, 0.0, 0.0, 0.0])            # strong barrel distortion
+    calib = tmp_path / "calib.yaml"
+    calib.write_text(yaml.safe_dump({"width": 640, "height": 480, "K": K.tolist(), "dist": dist.tolist()}))
+    pos, att = np.array([9.2, 8.6, -2.5]), np.array([0.03, -0.02, 0.4])
+    ideal = cam.render(pos, att, noise=2)
+    # make the distorted image the real lens would produce
+    uu, vv = np.meshgrid(np.arange(640, dtype=np.float32), np.arange(480, dtype=np.float32))
+    pts = cv2.undistortPoints(np.stack([uu.ravel(), vv.ravel()], 1)[:, None, :], K, dist, P=K).reshape(480, 640, 2)
+    distorted = cv2.remap(ideal, pts[..., 0], pts[..., 1], cv2.INTER_LINEAR)
+    rng_m = -pos[2] / (math.cos(att[0]) * math.cos(att[1]))
+    results = {}
+    for name, c in (("raw", None), ("calibrated", str(calib))):
+        node = CvNode(cfg["perception"], world, dict(cfg["sensors"]["camera"], calibration=c))
+        for _ in range(4):
+            r = node.process(CameraFrame(0.0, distorted, att, rng_m), pos)
+        tag = [o for o in r.observations if o.name == "tag_07"]
+        results[name] = np.linalg.norm(tag[0].fix_xy - pos[:2]) if tag else 9.9
+    assert results["calibrated"] < 0.05
+    assert results["calibrated"] < results["raw"]

@@ -1,0 +1,21 @@
+# Companion computer service (Raspberry Pi / Jetson without ROS): connects to the Pixhawk at boot,
+# runs perception + health monitoring + logging in STANDBY. It never takes off on its own:
+# start the mission from the ground laptop with  curl -X POST http://<companion>:8081/start
+[Unit]
+Description=gdnav companion (GPS-denied navigation, standby)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gdnav
+EnvironmentFile=/etc/gdnav/companion.env
+WorkingDirectory=/opt/gdnav
+ExecStart=/opt/gdnav/.venv/bin/python scripts/run_px4.py --standby --timeout 86400 \
+    --url ${GDNAV_PX4_URL} --mission ${GDNAV_MISSION} --camera ${GDNAV_CAMERA}
+Restart=on-failure
+RestartSec=3
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target

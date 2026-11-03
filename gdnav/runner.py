@@ -209,7 +209,7 @@ class MissionRunner:
             self.sm.observe(now, perc.observations)
             if self.map_matcher is not None and frame.t >= self._map_next:
                 self._map_next = frame.t + 1.0 / self.map_cfg["rate_hz"]
-                self._floor_map_step(frame, est_at_exposure, lag, telem, now)
+                self._floor_map_step(frame, perc.image, est_at_exposure, lag, telem, now)
             if self.annotate and perc.annotated is not None:
                 ok, buf = cv2.imencode(".jpg", perc.annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 if ok:
@@ -263,18 +263,18 @@ class MissionRunner:
             return self._fuse_fix_with_vio(xy, std, yaw)
         return self.vehicle.send_vision_position(t, xy, std, yaw)
 
-    def _floor_map_step(self, frame, est_at, lag, telem, now) -> None:
+    def _floor_map_step(self, frame, image, est_at, lag, telem, now) -> None:
         mm, ms = self.map_matcher, self.map_stats
         pos = np.array(est_at, float).copy()
         pos[2] = -self.cv.localizer.height(frame.range_m, frame.att)
         if -pos[2] < 0.8 or self.sm.state not in FLYING_STATES:
             return
         if self.teach_map is not None and telem.pos_std < self.map_cfg["teach_max_std"] and now - self._last_fix_t < 3.0:
-            mm.teach(self.teach_map, frame.image, pos, frame.att)
+            mm.teach(self.teach_map, image, pos, frame.att)
             ms["taught"] += 1
         if self.floor_map is not None:
             ms["tries"] += 1
-            fix = mm.match(self.floor_map, frame.image, pos, frame.att, float(frame.att[2]))
+            fix = mm.match(self.floor_map, image, pos, frame.att, float(frame.att[2]))
             ms["ms"] = mm.last_ms
             if fix is None:
                 return
