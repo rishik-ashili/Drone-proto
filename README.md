@@ -12,11 +12,27 @@ later run on the real companion computer:
   RETURN_TO_START → PRECISION_LAND → LAND) streams Offboard setpoints;
 - a **health monitor** runs the failsafe chain (fault → hold → land), and a reactive **local planner**
   steers around obstacles;
+- **Phase 3 in simulation:** a stereo **VIO** model whose drift is corrected by landmark fixes
+  before it reaches the estimator, exactly as on the Jetson;
+- **Phase 4 drift correction without landmarks:** **teach-and-repeat floor-map matching** (orthorectified
+  frames, ORB + RANSAC against a map taught on an earlier flight);
+- **pilot control:** fly it yourself in PX4-style **Position mode** (keyboard or gamepad, no GPS),
+  with collision prevention, or **click on the map** to send it somewhere;
 - everything is shown live in a **browser dashboard** with a 3D view, the onboard camera with AI
   detections, accuracy against ground truth, and one-click **failure injection**.
 
-The same mission code drives **real PX4** (SITL with Gazebo, or a Pixhawk) through MAVSDK. The
-`--px4` path below is the bridge from simulation to the drone.
+The same mission code drives **real PX4** three ways: MAVSDK (SITL with Gazebo, or a Pixhawk on a Pi),
+or ROS 2 + uXRCE-DDS on the Jetson.
+
+| Document | What it is for |
+|---|---|
+| [docs/YOUR_TODO.md](docs/YOUR_TODO.md) | The exact steps only you can do (PX4 SITL, hardware bring-up) |
+| [docs/STATUS.md](docs/STATUS.md) | Week-by-week status against the plan |
+| [docs/GAZEBO.md](docs/GAZEBO.md) | PX4 SITL + Gazebo step by step |
+| [docs/CHECKLISTS.md](docs/CHECKLISTS.md), [docs/TEST_CARDS.md](docs/TEST_CARDS.md) | Flight-test procedures |
+| [docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md), [docs/benchmark_results.md](docs/benchmark_results.md) | Technical write-up and measured results |
+| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | Investor demo talk track |
+| [jetson/README.md](jetson/README.md), [docs/ML.md](docs/ML.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Phase 3, the AI model, code map |
 
 ![architecture](docs/architecture.svg)
 
@@ -67,9 +83,15 @@ Useful options:
    link lost* (the PX4 offboard-loss failsafe triggers, then the mission recovers), *Battery drops to
    22 %* (return to start), *Inject false-positive detections* (the estimator's innovation gate
    rejects them), or *Strong wind gust*.
-4. **Vision AI toggle.** Uncheck *Vision AI* in the top bar (this resets the run) and fly again. The
-   same drone and sensors now fly on optical flow and the IMU alone: waypoints are missed by about
-   0.5–0.9 m instead of about 0.08 m (see `docs/benchmark_results.md`).
+4. **Landmark AI toggle.** Uncheck *Landmark AI* in the top bar (this resets the run) and fly again.
+   The same drone and sensors now fly on optical flow and the IMU alone: waypoints are missed by
+   about 0.5–0.9 m instead of about 0.08 m (see `docs/benchmark_results.md`).
+5. **Phase 3 and 4 previews.** Switch *Nav* to *Stereo VIO*, or tick *Floor map* with Landmark AI off,
+   to show drift correction that needs no landmarks.
+6. **Pilot control.** Press **Take control** and fly with W/A/S/D (move), R/F (up/down) and Q/E (yaw),
+   or a gamepad. Let go and the drone holds position on its GPS-free estimate. Push it at a pillar:
+   collision prevention stops it. Click anywhere on the top-down map to send the drone there, then
+   **Resume autonomy** to continue the mission.
 
 A step-by-step talk track is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
 
@@ -83,6 +105,9 @@ python scripts/run_sim.py
 python scripts/run_sim.py --no-correction                          # vision AI off (flow + IMU only)
 python scripts/run_sim.py --inject camera_covered@14:4 --inject wind_gust@20:15
 python scripts/run_sim.py --record demo.mp4                        # video for the pitch deck
+python scripts/run_sim.py --nav-source vio                         # Phase 3: stereo VIO + landmark correction
+python scripts/run_sim.py --teach maps/indoor_arena.npz            # teach flight: build a floor map
+python scripts/run_sim.py --no-correction --map maps/indoor_arena.npz   # repeat flight without landmarks
 
 # Every run writes logs/<mission>_<time>.jsonl (common log format, plan section 5)
 python scripts/make_report.py --latest                             # HTML + PNG flight report
@@ -94,7 +119,22 @@ python -m pytest -q                    # unit + end-to-end mission tests
 ```
 
 Fault names for `--inject NAME@START[:DURATION]`: `camera_covered`, `camera_dropout`, `dim_lights`,
-`link_loss`, `featureless_floor`, `wind_gust`, `low_battery`, `false_landmark`.
+`link_loss`, `featureless_floor`, `wind_gust`, `low_battery`, `false_landmark`, `vio_tracking_loss`.
+
+Hardware-prep tools (all usable today):
+
+| Tool | Use |
+|---|---|
+| `scripts/validate_mission.py` | Fence, altitude, landmark visibility, obstacle clearance, battery |
+| `scripts/make_printables.py` | Landmarks at real size, tiled PDF with a scale bar |
+| `scripts/calibrate_camera.py` | ChArUco board + intrinsic calibration; undistortion is then automatic |
+| `scripts/record_dataset.py` | Real/Gazebo frames with YOLO pre-labels for annotation |
+| `scripts/merge_datasets.py`, `scripts/fetch_public_datasets.py` | Build the training set (synthetic + public + real) |
+| `scripts/bench_check.py` | PX4 parameters, health without GPS, sensors, vision fusion, props-off Offboard |
+| `scripts/analyze_ulog.py` | PX4 flight log: EKF2 aiding, innovations, eph, modes, failsafes |
+| `scripts/benchmark_perception.py` | Perception FPS / latency on the Pi or Jetson |
+| `scripts/deploy_companion.sh` | Boot-time service on the companion (standby: never flies on its own) |
+| `scripts/export_gazebo.py` | Any world → Gazebo SDF + x500 with flow and a downward camera |
 
 ---
 
@@ -128,15 +168,17 @@ section 8). See [docs/ML.md](docs/ML.md) for the dataset plan, temporal filterin
 The mission, perception and safety code talk to the vehicle through one interface
 (`gdnav/interface/vehicle.py`). Swapping the built-in simulator for PX4 is a command-line change.
 
-**PX4 SITL (Phase 0/1, Ubuntu 22.04):**
+**PX4 SITL (Phase 0/1, Ubuntu 22.04/24.04):** the full guide is [docs/GAZEBO.md](docs/GAZEBO.md).
 
 ```bash
 ./scripts/px4_sitl.sh setup        # one time: PX4 v1.17.0 + Gazebo toolchain
-./scripts/px4_sitl.sh run          # gz_x500_flow: quadcopter with optical flow + rangefinder
+./scripts/px4_sitl.sh sih          # quickest: PX4's built-in physics, no Gazebo
+./scripts/px4_sitl.sh run          # gz_x500_flow: quadcopter with optical flow + rangefinder (no GPS)
+./scripts/px4_sitl.sh gdnav        # our arena + landmarks + downward camera in Gazebo
 # second terminal
 pip install -r requirements-px4.txt
 python scripts/apply_px4_params.py # config/px4/gps_denied_flow.params (GPS off, flow on, failsafes)
-python scripts/run_px4.py --mission hello_square
+python scripts/run_px4.py --mission hello_square          # add --gz-camera with 'gdnav'
 ```
 
 **Pixhawk 6C on the bench (props OFF), then tethered:**
@@ -162,11 +204,12 @@ conversion, TensorRT engine builder) is in [jetson/README.md](jetson/README.md).
 gdnav/
   sim/           world + floor texture, downward camera renderer, quadrotor physics, sensors
                  (IMU, flow, rangefinder, baro, mag, depth), EKF2 analogue, PX4 controller analogue
-  perception/    cv_node, YOLO (ONNX) + ArUco + colour detectors, landmark_localizer, temporal filter
+  perception/    cv_node, YOLO (ONNX) + ArUco + colour detectors, landmark_localizer, temporal filter,
+                 floor-map matcher (teach and repeat)
   navigation/    mission files + waypoint_manager, mission_state_machine, local_planner, geofence
   safety/        health_monitor (failsafe chain)
-  interface/     VehicleInterface, PX4 MAVSDK backend
-  bridge/        ENU/FLU <-> NED/FRD frames for the VIO bridge
+  interface/     VehicleInterface, PX4 MAVSDK backend, Gazebo camera
+  bridge/        ENU/FLU <-> NED/FRD frames, landmark/VIO fusion, px4_msgs conversions
   dashboard/     ground dashboard (stdlib HTTP server + three.js)
   tools/         flight report, replay, demo video
   runner.py      the companion main loop (perception -> estimator -> health -> state machine)
@@ -175,7 +218,10 @@ worlds/          arenas: landmarks, obstacles, distractors
 missions/        mission files (format from plan section 9)
 models/          trained landmark detector (ONNX + PyTorch + eval report)
 scripts/         run_dashboard, run_sim, benchmark, dataset/train/export, PX4, reports
-jetson/          Phase 3: ROS 2 VIO bridge, notes
+jetson/          Phase 3: ROS 2 package (PX4 uXRCE-DDS vehicle, mission node, VIO bridge, launch)
+gazebo/          exported Gazebo world + x500_flow_cam_down model (scripts/export_gazebo.py)
+maps/            taught floor maps for teach-and-repeat
+deploy/          systemd units for the companion computer
 tests/           pytest suite
 docs/            architecture, demo script, ML notes, benchmark results
 ```

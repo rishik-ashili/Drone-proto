@@ -44,11 +44,23 @@ Use the *Failure injection* panel during an ALIGN phase:
 ### 4. Results (1 min)
 
 When it lands: *Return-to-start error* (typically under 10 cm after about 44 m) and *Waypoint reach
-error* (about 8 cm). Then untick **Vision AI** (this resets the run) and fly again. On optical flow
+error* (about 8 cm). Then untick **Landmark AI** (this resets the run) and fly again. On optical flow
 and the IMU alone, the drone misses each landmark by about 0.5–0.9 m. That is roughly 7× worse, and
 the error grows with every metre flown.
 
 > "Same drone, same sensors. The only difference is our vision AI. That's the product."
+
+### 4b. Optional extras (1–2 min each)
+
+- **"Can I fly it?"** Press **Take control**: the pilot flies with W/A/S/D, R/F and Q/E (or a
+  gamepad), still without GPS. Let go and it holds position. Fly it at a pillar: collision
+  prevention stops it. Then **Resume autonomy**, and it picks the mission up again.
+- **Tap to go.** Click anywhere on the top-down map and the drone flies there on its GPS-free
+  estimate, avoiding pillars.
+- **No landmarks at all.** Untick Landmark AI and tick **Floor map**. The drone recognises the
+  floor itself from a map taught on an earlier flight, and the error stays near 0.1 m.
+- **Phase 3 preview.** Set *Nav* to **Stereo VIO**, then press *Stereo VIO loses tracking*. It
+  falls back to optical flow, then re-anchors without a jump.
 
 ### 5. Credibility (30 s)
 
