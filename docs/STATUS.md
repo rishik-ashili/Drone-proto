@@ -77,7 +77,7 @@ All 7 that are left need physical hardware.
 | Obstacle avoidance | Partly | Reactive planner + PX4-style collision prevention; not EGO-Planner |
 | Teach-and-repeat drift correction | Partly | Floor-map matching (ORB + RANSAC) works; AnyLoc descriptors not used |
 | Satellite-map matching | Partly | Same matcher accepts any orthophoto; no outdoor test |
-| Final release tagged | Partly | `v0.3.0-sim` (pre-hardware); the final tag comes after the hardware freeze |
+| Final release tagged | Partly | Pre-hardware tag `v0.3.0-sim` = commit `953d17e` (create it on GitHub, see YOUR_TODO); final tag after the hardware freeze |
 | Exit: demo repeated within targets | Partly | Simulator only |
 | Exit: failsafes verified after freeze | Partly | Simulator only |
 

@@ -17,7 +17,10 @@ do, in order. Send me the terminal output of anything that fails.
 4. **Datasets:** from your machine (Zenodo is reachable there), optionally
    `python scripts/fetch_public_datasets.py kios_landing_pad`. Check its licence and only map it to
    a class you will actually fly.
-5. **Decide the open items from the plan (section 13):**
+5. **Tag the pre-hardware release** (my session could push only the working branch, not tags):
+   `git tag -a v0.3.0-sim 953d17e -m "Pre-hardware release" && git push origin v0.3.0-sim`,
+   or create the release on GitHub from commit `953d17e`.
+6. **Decide the open items from the plan (section 13):**
    - Which features the reference video shows.
    - Camera, flow sensor, rangefinder and companion board models.
    - Landmark set and waypoint count.
