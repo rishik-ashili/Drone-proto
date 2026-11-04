@@ -15,6 +15,7 @@ import numpy as np
 
 
 class LocalPlanner:
+    """Reactive obstacle avoidance on the forward depth scan (EGO-Planner stand-in)."""
     def __init__(self, cfg: dict):
         self.enabled = cfg.get("enabled", True)
         self.influence = cfg.get("influence_m", 2.2)
@@ -23,6 +24,7 @@ class LocalPlanner:
         self.closest = float("inf")
 
     def adjust(self, v_des: np.ndarray, pos_xy: np.ndarray, yaw: float, scan) -> np.ndarray:
+        """Desired velocity -> obstacle-safe velocity (repulsion + tangential slide + slow-down)."""
         self.active = False
         self.closest = float("inf")
         if not self.enabled or scan is None:

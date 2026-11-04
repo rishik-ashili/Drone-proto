@@ -20,6 +20,7 @@ from gdnav.sim.flight_controller import Setpoint
 
 @dataclass
 class Telemetry:
+    """Vehicle state as the companion sees it (estimates, never ground truth)."""
     t: float = 0.0                 # vehicle time of the sample (s)
     received_t: float = 0.0        # companion time it arrived (link monitoring)
     pos: np.ndarray = field(default_factory=lambda: np.zeros(3))   # estimated local NED
@@ -38,6 +39,7 @@ class Telemetry:
 
 @dataclass
 class CameraFrame:
+    """One downward-camera image with the attitude, range and position estimate at exposure."""
     t: float
     image: np.ndarray
     # vehicle state at exposure time, as known by the companion (estimate)
@@ -47,27 +49,34 @@ class CameraFrame:
 
 
 class VehicleInterface(ABC):
+    """The one API mission, perception and safety code use; implemented by the simulator, MAVSDK and ROS 2 backends."""
     def now(self) -> float:
         """Vehicle clock (s) shared by telemetry timestamps, frames and the nav loop."""
         return time.monotonic()
 
     @abstractmethod
-    def telemetry(self) -> Telemetry: ...
+    def telemetry(self) -> Telemetry:
+        """Latest vehicle state: estimated position/velocity/attitude, mode, armed, battery, range."""
 
     @abstractmethod
-    def arm(self) -> bool: ...
+    def arm(self) -> bool:
+        """Arm the motors. Returns False if the flight controller refused."""
 
     @abstractmethod
-    def start_offboard(self) -> bool: ...
+    def start_offboard(self) -> bool:
+        """Switch to Offboard mode (setpoints must already be streaming)."""
 
     @abstractmethod
-    def send_setpoint(self, sp: Setpoint) -> None: ...
+    def send_setpoint(self, sp: Setpoint) -> None:
+        """Stream one Offboard position or velocity setpoint (local NED)."""
 
     @abstractmethod
-    def land(self) -> None: ...
+    def land(self) -> None:
+        """Command the flight controller's Land mode."""
 
     @abstractmethod
-    def hold(self) -> None: ...
+    def hold(self) -> None:
+        """Command the flight controller's Hold (position hold) mode."""
 
     @abstractmethod
     def send_vision_position(self, t: float, pos_xy: np.ndarray, std: float,
@@ -93,6 +102,7 @@ class VehicleInterface(ABC):
         return []
 
     def latest_frame(self) -> CameraFrame | None:
+        """Most recent camera frame, or None when the backend has no camera."""
         return None
 
     def depth_scan(self):
@@ -100,4 +110,5 @@ class VehicleInterface(ABC):
         return None
 
     def close(self) -> None:
+        """Release connections and threads."""
         pass

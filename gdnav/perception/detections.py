@@ -7,6 +7,7 @@ import numpy as np
 
 @dataclass
 class Detection:
+    """One detector output in pixels (class, confidence, box, source, optional tag id / corners)."""
     cls: str
     conf: float
     bbox: tuple[float, float, float, float]  # x1, y1, x2, y2 (pixels)
@@ -16,6 +17,7 @@ class Detection:
 
     @property
     def center(self) -> tuple[float, float]:
+        """Box centre (u, v) in pixels."""
         x1, y1, x2, y2 = self.bbox
         return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 

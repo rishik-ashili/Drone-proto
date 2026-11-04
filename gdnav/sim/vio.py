@@ -22,6 +22,7 @@ from gdnav.common.geometry import rot_z, wrap_pi
 
 @dataclass
 class VioSample:
+    """One VIO odometry output (pose and velocity in the VIO frame, uncertainty, reset counter)."""
     t: float
     pos: np.ndarray        # odometry-frame position (NED-aligned, metres)
     vel: np.ndarray        # odometry-frame velocity
@@ -33,6 +34,7 @@ class VioSample:
 
 
 class VioSensor:
+    """Behavioural stereo-VIO model: distance-scaled drift, heading drift, tracking loss, re-initialisation."""
     def __init__(self, cfg: dict, rng: np.random.Generator, start_pos=np.zeros(3), start_yaw=0.0):
         self.c = cfg
         self.rng = rng
@@ -55,6 +57,7 @@ class VioSensor:
         self.prev_yaw = true_yaw
 
     def step(self, t: float, true_pos: np.ndarray, true_vel: np.ndarray, true_yaw: float, dt: float) -> None:
+        """Integrate true motion into the drifting odometry frame."""
         if self.lost:
             self.tracking = False
             self.prev_true = true_pos.copy()
@@ -78,6 +81,7 @@ class VioSensor:
         self.prev_yaw = true_yaw
 
     def sample(self, t: float, true_vel: np.ndarray, true_yaw: float) -> VioSample | None:
+        """Produce (and buffer) the current odometry sample, or None while tracking is lost."""
         if not self.tracking:
             return None
         c = self.c
@@ -93,5 +97,6 @@ class VioSensor:
         return s
 
     def drain(self) -> list[VioSample]:
+        """Samples produced since the last call."""
         out, self._buffer = self._buffer, []
         return out

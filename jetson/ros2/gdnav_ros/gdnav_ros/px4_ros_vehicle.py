@@ -34,6 +34,7 @@ PX4_QOS = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, durability=Durab
 
 
 class Px4RosVehicle(VehicleInterface):
+    """VehicleInterface over ROS 2 px4_msgs (uXRCE-DDS), plus camera and cuVSLAM inputs."""
     def __init__(self, node: Node, camera_topic: str | None = "/camera/down/image_raw",
                  vio_topic: str | None = None, frame_size=(640, 480)):
         self.node = node

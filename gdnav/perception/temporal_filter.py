@@ -7,6 +7,7 @@ import numpy as np
 
 
 class TemporalFilter:
+    """Confirms a landmark only after N consecutive consistent frames."""
     def __init__(self, frames_required: int = 3, max_jump_m: float = 0.6, max_misses: int = 1):
         self.n = frames_required
         self.max_jump = max_jump_m
@@ -35,4 +36,5 @@ class TemporalFilter:
         return confirmed
 
     def reset(self) -> None:
+        """Forget all tracks."""
         self.tracks.clear()

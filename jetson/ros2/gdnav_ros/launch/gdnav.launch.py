@@ -15,6 +15,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """Micro XRCE-DDS Agent + mission node with launch arguments."""
     args = [
         DeclareLaunchArgument("mission", default_value="investor_demo"),
         DeclareLaunchArgument("nav_source", default_value="flow", description="flow | vio"),

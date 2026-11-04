@@ -34,6 +34,7 @@ CLASS_COLOURS = {
 
 @dataclass
 class PerceptionResult:
+    """Detections, confirmed observations, timing and image statistics for one frame."""
     t: float
     detections: list[Detection]
     observations: list[LandmarkObservation]
@@ -46,6 +47,7 @@ class PerceptionResult:
 
 
 class CvNode:
+    """Per-frame perception pipeline: detectors -> localizer -> map association -> temporal filter."""
     def __init__(self, cfg: dict, world: World, cam_cfg: dict, rng: np.random.Generator | None = None):
         self.cfg = cfg
         self.world = world
@@ -94,6 +96,7 @@ class CvNode:
 
     # ------------------------------------------------------------------
     def process(self, frame: CameraFrame, est_pos: np.ndarray, annotate: bool = True) -> PerceptionResult:
+        """Run the whole pipeline on one camera frame at the given position estimate."""
         t0 = time.perf_counter()
         img = frame.image
         if self._undistort_maps is not None:  # real lens: remove distortion once, then pinhole maths everywhere
@@ -176,6 +179,7 @@ class CvNode:
 
     # ------------------------------------------------------------------
     def annotate(self, img: np.ndarray, dets: list[Detection], res: PerceptionResult) -> np.ndarray:
+        """Draw detections, offsets and the HUD onto a copy of the frame."""
         out = img.copy()
         h, w = out.shape[:2]
         cv2.drawMarker(out, (w // 2, h // 2), (255, 255, 255), cv2.MARKER_CROSS, 24, 1, cv2.LINE_AA)

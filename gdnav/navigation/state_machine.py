@@ -23,6 +23,7 @@ from gdnav.sim.flight_controller import Setpoint
 
 
 class State(str, Enum):
+    """Mission state machine states (plan section 7 list plus failsafe and operator states)."""
     IDLE = "IDLE"
     PREFLIGHT = "PREFLIGHT"
     TAKEOFF = "TAKEOFF"
@@ -66,6 +67,7 @@ def _spiral(step: float, rings: int = 3) -> list[np.ndarray]:
 
 
 class MissionStateMachine:
+    """Companion mission logic: streams Offboard setpoints from the estimate and confirmed landmarks."""
     def __init__(self, nav_cfg: dict, safety_cfg: dict, mission: Mission, vehicle: VehicleInterface,
                  planner: LocalPlanner, geofence: Geofence, health: HealthMonitor,
                  event_cb: Callable[[str, str, dict], None], truth_fn: Callable[[], dict | None] = lambda: None,
@@ -117,6 +119,7 @@ class MissionStateMachine:
 
     # ------------------------------------------------------------ helpers
     def start(self) -> None:
+        """Begin the mission (from IDLE, LANDED or ABORTED); restarts waypoint progress."""
         if self.state in (State.IDLE, State.LANDED, State.ABORTED):
             if self.state != State.IDLE:  # flying the mission again from where it landed
                 self.mgr = WaypointManager(self.mission)
@@ -180,6 +183,7 @@ class MissionStateMachine:
         return True
 
     def land_now(self) -> None:
+        """Operator land: skip remaining waypoints and land here."""
         if self.state in FLYING_STATES:
             self.mgr.skip_remaining()
             self.resume_state = None
@@ -226,6 +230,7 @@ class MissionStateMachine:
                             yaw=self.yaw_sp if yaw is None else yaw))
 
     def observe(self, t: float, observations: list[LandmarkObservation]) -> None:
+        """Remember confirmed landmark observations with their time."""
         for o in observations:
             if o.confirmed:
                 self.visible[o.name] = (t, o)
@@ -249,6 +254,7 @@ class MissionStateMachine:
 
     # --------------------------------------------------------------- step
     def step(self, t: float, telem: Telemetry, depth=None) -> None:
+        """One navigation tick: apply health actions, then run the current state's handler."""
         self.t = t
         self.telem = telem
         self.depth = depth

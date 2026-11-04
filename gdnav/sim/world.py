@@ -30,6 +30,7 @@ ARUCO_DICT = cv2.aruco.DICT_4X4_50
 
 @dataclass
 class Landmark:
+    """A mapped landmark: type, position, size, yaw and ArUco id."""
     name: str
     type: str
     x: float
@@ -40,15 +41,18 @@ class Landmark:
 
     @property
     def cls(self) -> str:
+        """YOLO class name of this landmark."""
         return TYPE_TO_CLASS[self.type]
 
     @property
     def pos(self) -> np.ndarray:
+        """Landmark position (north, east)."""
         return np.array([self.x, self.y])
 
 
 @dataclass
 class Obstacle:
+    """A vertical cylinder (pillar) obstacle."""
     name: str
     x: float
     y: float
@@ -58,6 +62,7 @@ class Obstacle:
 
 @dataclass
 class World:
+    """Arena: bounds, landmarks, obstacles and the generated floor texture."""
     name: str
     x_min: float
     x_max: float
@@ -75,6 +80,7 @@ class World:
     # ----------------------------------------------------------------- loading
     @classmethod
     def load(cls, name_or_path: str | Path, build_texture: bool = True) -> "World":
+        """Load worlds/<name>.yaml (or a path) and build the floor texture."""
         d = load_yaml(resolve(name_or_path, WORLDS_DIR))
         b = d["bounds"]
         w = cls(
@@ -93,12 +99,14 @@ class World:
         return w
 
     def landmark(self, name: str) -> Landmark | None:
+        """Landmark by name, or None."""
         for lm in self.landmarks:
             if lm.name == name:
                 return lm
         return None
 
     def to_dict(self) -> dict:
+        """Serialisable summary for logs and the dashboard."""
         return {
             "name": self.name,
             "bounds": [self.x_min, self.x_max, self.y_min, self.y_max],
@@ -109,6 +117,7 @@ class World:
     # --------------------------------------------------------------- geometry
     @property
     def tex_shape(self) -> tuple[int, int]:
+        """Texture size (rows, cols) at the world resolution."""
         rows = int(round((self.x_max - self.x_min) / self.res))
         cols = int(round((self.y_max - self.y_min) / self.res))
         return rows, cols
@@ -123,11 +132,13 @@ class World:
         return np.array([[0.0, -r, self.x_max], [r, 0.0, self.y_min], [0.0, 0.0, 1.0]])
 
     def inside(self, x: float, y: float, margin: float = 0.0) -> bool:
+        """True if (x, y) lies inside the bounds minus a margin."""
         return (self.x_min + margin <= x <= self.x_max - margin
                 and self.y_min + margin <= y <= self.y_max - margin)
 
     # ---------------------------------------------------------------- texture
     def build_texture(self) -> np.ndarray:
+        """Procedural floor with grid, distractors, obstacle footprints and landmarks."""
         rng = np.random.default_rng(self.seed)
         rows, cols = self.tex_shape
         tex = floor_texture(rows, cols, self.surface, rng)
@@ -182,6 +193,7 @@ def _noise(rows: int, cols: int, scale: int, rng: np.random.Generator) -> np.nda
 
 
 def floor_texture(rows: int, cols: int, surface: str, rng: np.random.Generator) -> np.ndarray:
+    """Procedural concrete / grass / mat texture with multi-scale noise and speckles."""
     n = (0.5 * _noise(rows, cols, 400, rng) + 0.3 * _noise(rows, cols, 60, rng)
          + 0.2 * _noise(rows, cols, 8, rng))
     fine = rng.standard_normal((rows, cols)).astype(np.float32)

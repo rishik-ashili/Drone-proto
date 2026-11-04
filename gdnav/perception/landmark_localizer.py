@@ -16,11 +16,13 @@ from gdnav.common.geometry import R_CAM_FROM_BODY, rot_from_euler, wrap_pi
 
 
 class LandmarkLocalizer:
+    """Back-projects pixels onto the ground plane using intrinsics, attitude and range."""
     def __init__(self, K: np.ndarray):
         self.K = K
         self.Kinv = np.linalg.inv(K)
 
     def height(self, range_m: float, att: np.ndarray) -> float:
+        """Height above ground from a slant rangefinder reading and the tilt."""
         return max(0.05, range_m * math.cos(att[0]) * math.cos(att[1]))
 
     def pixel_to_offset(self, uv, att: np.ndarray, range_m: float) -> np.ndarray | None:

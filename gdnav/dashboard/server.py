@@ -111,6 +111,7 @@ class SimApp:
 
     # ------------------------------------------------------------ commands
     def command(self, c: dict) -> dict:
+        """Apply a dashboard command (start, pause, reset, inject, goto, sticks, ...); returns {ok, error}."""
         cmd = c.get("cmd")
         with self.lock:
             if cmd == "start":
@@ -156,6 +157,7 @@ class SimApp:
         return {"ok": True}
 
     def world_info(self) -> dict:
+        """Static scene description for the browser: world, mission, faults, camera, model, floor map."""
         r = self.runner
         return {"world": r.world.to_dict(), "mission": r.mission.to_dict(),
                 "faults": FAULTS, "missions": sorted(p.stem for p in MISSIONS_DIR.glob("*.yaml")),
@@ -165,6 +167,7 @@ class SimApp:
 
 
 def make_handler(app: SimApp):
+    """HTTP request handler class bound to one SimApp (pages, SSE stream, MJPEG camera, commands)."""
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -263,6 +266,7 @@ def make_handler(app: SimApp):
 
 
 def serve(app: SimApp, host: str = "127.0.0.1", port: int = 8080) -> None:
+    """Run the dashboard HTTP server until Ctrl+C."""
     httpd = ThreadingHTTPServer((host, port), make_handler(app))
     httpd.daemon_threads = True
     shown = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host

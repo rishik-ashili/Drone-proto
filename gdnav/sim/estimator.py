@@ -24,6 +24,7 @@ G = 9.81
 
 
 class PositionEstimator:
+    """EKF2 analogue: horizontal, vertical and heading filters fed by IMU, flow, range, baro, mag and EV."""
     def __init__(self, cfg: dict, use_external_vision: bool = True, yaw0: float = 0.0):
         self.cfg = cfg
         self.use_ev = use_external_vision
@@ -47,18 +48,22 @@ class PositionEstimator:
     # -------------------------------------------------------------- properties
     @property
     def pos(self) -> np.ndarray:
+        """Estimated position (local NED)."""
         return np.array([self.xh[0], self.xh[1], self.xv[0]])
 
     @property
     def vel(self) -> np.ndarray:
+        """Estimated velocity (local NED)."""
         return np.array([self.xh[2], self.xh[3], self.xv[1]])
 
     @property
     def yaw(self) -> float:
+        """Estimated heading (rad)."""
         return float(self.xy[0])
 
     @property
     def att(self) -> np.ndarray:
+        """Estimated roll, pitch, yaw."""
         return np.array([self.roll, self.pitch, self.yaw])
 
     @property
@@ -67,11 +72,13 @@ class PositionEstimator:
         return float(math.sqrt(max(self.Ph[0, 0], self.Ph[1, 1])))
 
     def reset_on_ground(self) -> None:
+        """Zero the velocity states while landed."""
         self.xh[2:4] = 0.0
         self.xv[1] = 0.0
 
     # --------------------------------------------------------------- predict
     def predict(self, accel_b: np.ndarray, gyro_b: np.ndarray, roll: float, pitch: float, dt: float) -> None:
+        """IMU prediction step (specific force rotated by attitude, minus bias)."""
         self.roll, self.pitch = roll, pitch
         # heading
         self.xy[0] = wrap_pi(self.xy[0] + (gyro_b[2] - self.xy[1]) * dt)
@@ -117,6 +124,7 @@ class PositionEstimator:
         return True
 
     def update_flow(self, t: float, vel_body: np.ndarray, std: float) -> bool:
+        """Fuse optical-flow body velocity (gated)."""
         Rz = rot_z(self.yaw)
         # measurement model: v_body = Rz^T v_world
         H = np.zeros((2, 6))
@@ -130,15 +138,18 @@ class PositionEstimator:
         return ok
 
     def update_range(self, rng: float, std: float = 0.03) -> None:
+        """Fuse rangefinder height (tilt compensated)."""
         h = rng * math.cos(self.roll) * math.cos(self.pitch)
         H = np.array([[1.0, 0.0, 0.0]])
         self._kf_update(self.xv, self.Pv, np.array([-h]), H, np.array([[std * std]]), 5.0)
 
     def update_baro(self, alt: float, std: float = 0.6) -> None:
+        """Fuse barometric altitude."""
         H = np.array([[1.0, 0.0, 0.0]])
         self._kf_update(self.xv, self.Pv, np.array([-alt]), H, np.array([[std * std]]), 6.0)
 
     def update_heading(self, yaw_meas: float, std: float) -> bool:
+        """Fuse a heading measurement (magnetometer or ArUco)."""
         y = wrap_pi(yaw_meas - self.xy[0])
         S = float(self.Py[0, 0]) + std * std
         if y * y / S > 16.0:

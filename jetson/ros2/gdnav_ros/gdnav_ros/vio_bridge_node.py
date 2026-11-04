@@ -34,6 +34,7 @@ except ImportError:  # running from the repository without `pip install -e .`
 
 
 class VioBridge(Node):
+    """Standalone node forwarding cuVSLAM odometry to PX4 as VehicleOdometry."""
     def __init__(self):
         super().__init__("vio_bridge")
         self.declare_parameter("odom_topic", "/visual_slam/tracking/odometry")
@@ -45,6 +46,7 @@ class VioBridge(Node):
         self.create_timer(5.0, self.report)
 
     def on_odom(self, m: Odometry) -> None:
+        """Convert one ROS odometry message (ENU/FLU) and publish it to PX4 (NED/FRD)."""
         p, o, v = m.pose.pose.position, m.pose.pose.orientation, m.twist.twist.linear
         pos, q, vel = ros_odometry_to_px4([p.x, p.y, p.z], [o.w, o.x, o.y, o.z], [v.x, v.y, v.z])
         out = VehicleOdometry()
@@ -70,11 +72,13 @@ class VioBridge(Node):
         self.count += 1
 
     def report(self) -> None:
+        """Log the forwarding rate every 5 s."""
         self.get_logger().info(f"forwarded {self.count / 5.0:.1f} Hz odometry to PX4")
         self.count = 0
 
 
 def main() -> None:
+    """Entry point: spin the bridge node."""
     rclpy.init()
     rclpy.spin(VioBridge())
 

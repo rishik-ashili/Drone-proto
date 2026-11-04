@@ -23,6 +23,7 @@ from gdnav_ros.px4_ros_vehicle import Px4RosVehicle
 
 
 class MissionNode(Node):
+    """ROS 2 node running MissionRunner on Px4RosVehicle, with Trigger services and a status topic."""
     def __init__(self):
         super().__init__("gdnav_mission")
         p = self.declare_parameter
@@ -79,11 +80,13 @@ class MissionNode(Node):
         self.status_pub.publish(String(data=json.dumps(keep)))
 
     def destroy_node(self):
+        """Close the runner (summary + log) before shutting down."""
         self.runner.close()
         super().destroy_node()
 
 
 def main() -> None:
+    """Entry point: spin the mission node; Ctrl+C commands a landing."""
     rclpy.init()
     node = MissionNode()
     try:

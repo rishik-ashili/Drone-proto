@@ -31,6 +31,7 @@ class Setpoint:
 
 
 class FlightMode:
+    """Flight controller mode names (subset of PX4 navigation states)."""
     DISARMED = "DISARMED"
     ARMED = "ARMED"            # armed, on ground, waiting for a mode
     OFFBOARD = "OFFBOARD"
@@ -40,6 +41,7 @@ class FlightMode:
 
 
 class FlightController:
+    """PX4 multicopter controller analogue: modes, cascaded control, failsafes, collision prevention."""
     def __init__(self, cfg: dict, mass: float, max_thrust: float, max_tilt_deg: float):
         self.p = cfg
         self.m = mass
@@ -65,6 +67,7 @@ class FlightController:
 
     # -------------------------------------------------------------- commands
     def arm(self) -> bool:
+        """Arm if disarmed."""
         if self.mode == FlightMode.DISARMED:
             self.armed = True
             self.mode = FlightMode.ARMED
@@ -73,17 +76,20 @@ class FlightController:
         return self.armed
 
     def disarm(self) -> None:
+        """Disarm and reset integrators."""
         self.armed = False
         self.mode = FlightMode.DISARMED
         self.vel_int[:] = 0
         self.events.append(("info", "Disarmed"))
 
     def set_setpoint(self, sp: Setpoint, t: float) -> None:
+        """Store the latest Offboard setpoint and its arrival time."""
         self.sp = sp
         self.last_sp_t = t
 
     def start_offboard(self, t: float) -> bool:
         # PX4 refuses Offboard unless setpoints are already streaming
+        """Engage Offboard only while setpoints are streaming (as PX4 requires)."""
         if not self.armed or t - self.last_sp_t > 0.5:
             self.events.append(("warn", "Offboard rejected: no setpoint stream"))
             return False
@@ -93,6 +99,7 @@ class FlightController:
         return True
 
     def land(self) -> None:
+        """Switch to Land mode."""
         if self.armed:
             self.mode = FlightMode.LAND
             self.events.append(("info", "Land mode"))
@@ -109,10 +116,12 @@ class FlightController:
         self.events.append(("info", "Position mode (pilot)"))
 
     def set_sticks(self, sticks, t: float) -> None:
+        """Pilot stick input [forward, right, up, yaw] in -1..1."""
         self.sticks = np.clip(np.asarray(sticks, float), -1.0, 1.0)
         self.sticks_t = t
 
     def hold(self, est_pos: np.ndarray, est_yaw: float) -> None:
+        """Switch to Hold at the current estimated position and heading."""
         self.mode = FlightMode.HOLD
         self.hold_pos = est_pos.copy()
         self.hold_yaw = est_yaw

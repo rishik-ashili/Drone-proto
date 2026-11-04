@@ -19,11 +19,13 @@ _RULES = [
 
 
 class ColorDetector:
+    """HSV colour-segmentation fallback for the coloured pads (no ML)."""
     def __init__(self, min_area_px: int = 600):
         self.min_area = min_area_px
         self.last_ms = 0.0
 
     def detect(self, bgr: np.ndarray) -> list[Detection]:
+        """Pad detections from filled outer contours and rotated-box solidity."""
         hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
         out: list[Detection] = []
         for cls, ranges, min_fill in _RULES:

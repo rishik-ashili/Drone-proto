@@ -34,6 +34,7 @@ FAULTS = {
 
 
 class SimVehicle(VehicleInterface):
+    """Simulated drone + Pixhawk behind the VehicleInterface (also ground truth and fault injection)."""
     def __init__(self, cfg: dict, world: World, start_pos=(0.0, 0.0), start_yaw: float = 0.0):
         self.cfg = cfg
         self.world = world
@@ -80,6 +81,7 @@ class SimVehicle(VehicleInterface):
 
     # ------------------------------------------------------------ faults
     def inject(self, name: str) -> None:
+        """Start a simulated fault (see FAULTS)."""
         if name not in FAULTS:
             raise ValueError(f"unknown fault {name}")
         self.faults[name] = self.t
@@ -88,6 +90,7 @@ class SimVehicle(VehicleInterface):
         self._apply_faults()
 
     def clear(self, name: str) -> None:
+        """Stop a simulated fault."""
         self.faults.pop(name, None)
         self._apply_faults()
 
@@ -98,10 +101,12 @@ class SimVehicle(VehicleInterface):
 
     @property
     def link_up(self) -> bool:
+        """False while the companion link is cut."""
         return "link_loss" not in self.faults
 
     # --------------------------------------------------------- simulation
     def advance(self, duration: float) -> None:
+        """Advance the simulation by duration seconds at the physics rate."""
         n = max(1, int(round(duration / self.dt)))
         for _ in range(n):
             self._physics_step()
@@ -263,6 +268,7 @@ class SimVehicle(VehicleInterface):
 
     # ------------------------------------------- ground truth (sim only)
     def truth(self) -> dict:
+        """Ground truth for metrics and the dashboard (not available on a real drone)."""
         q = self.quad
         return {"pos": q.p.copy(), "vel": q.v.copy(), "att": q.att.copy(),
                 "dr_pos": self.dr.pos.copy(), "wind": self.wind.copy(),
@@ -270,4 +276,5 @@ class SimVehicle(VehicleInterface):
 
     @property
     def flying(self) -> bool:
+        """True while armed."""
         return self.fc.armed and self.fc.mode != FlightMode.DISARMED

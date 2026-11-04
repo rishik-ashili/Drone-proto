@@ -21,6 +21,7 @@ Q_FLU_FRD = np.array([0.0, 1.0, 0.0, 0.0])
 
 
 def q_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Hamilton product of two [w, x, y, z] quaternions."""
     w1, x1, y1, z1 = a
     w2, x2, y2, z2 = b
     return np.array([
@@ -32,17 +33,20 @@ def q_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def q_rotate(q: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Rotate vector v by quaternion q."""
     qv = np.concatenate([[0.0], v])
     qc = q * np.array([1, -1, -1, -1])
     return q_mul(q_mul(q, qv), qc)[1:]
 
 
 def enu_to_ned(v) -> np.ndarray:
+    """ENU world vector (east, north, up) -> NED (north, east, down)."""
     x, y, z = v
     return np.array([y, x, -z])
 
 
 def flu_to_frd(v) -> np.ndarray:
+    """FLU body vector (forward, left, up) -> FRD (forward, right, down)."""
     x, y, z = v
     return np.array([x, -y, -z])
 
@@ -55,11 +59,13 @@ def q_enu_flu_to_ned_frd(q_enu_flu: np.ndarray) -> np.ndarray:
 
 
 def yaw_from_q(q: np.ndarray) -> float:
+    """Heading (rad) of a [w, x, y, z] quaternion."""
     w, x, y, z = q
     return math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
 
 
 def q_from_yaw(yaw: float) -> np.ndarray:
+    """Quaternion of a pure rotation about z by yaw (rad)."""
     return np.array([math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)])
 
 

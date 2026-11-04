@@ -46,13 +46,16 @@ class FloorMap:
 
     # ------------------------------------------------------------ geometry
     def world_to_px(self, x, y):
+        """World (north, east) -> map pixel (col, row)."""
         return (y - self.y_min) / self.res, (self.x_max - x) / self.res
 
     def px_to_world(self, col, row):
+        """Map pixel (col, row) -> world (north, east)."""
         return self.x_max - row * self.res, self.y_min + col * self.res
 
     @property
     def image(self) -> np.ndarray:
+        """Blended mosaic as an 8-bit image (cached)."""
         if self._img is None:
             img = np.where(self.wsum > 0, self.acc / np.maximum(self.wsum, 1e-6), 0)
             self._img = img.astype(np.uint8)
@@ -60,6 +63,7 @@ class FloorMap:
 
     @property
     def coverage(self) -> float:
+        """Fraction of the map area that has been painted."""
         return float((self.wsum > 0).mean())
 
     # ------------------------------------------------------------- building
@@ -93,6 +97,7 @@ class FloorMap:
 
     # ----------------------------------------------------------- save / load
     def save(self, path: str | Path) -> None:
+        """Save the mosaic, validity mask and georeference to .npz."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(path, image=self.image, valid=(self.wsum > 0),
@@ -101,6 +106,7 @@ class FloorMap:
 
     @classmethod
     def load(cls, path: str | Path) -> "FloorMap":
+        """Load a map saved with save()."""
         d = np.load(path)
         meta = json.loads(str(d["meta"]))
         m = cls(*meta["bounds"], res=meta["res"])
@@ -120,6 +126,7 @@ class FloorMap:
 
 @dataclass
 class MapFix:
+    """A floor-map match: corrected position and heading, uncertainty, inliers and size of the correction."""
     xy: np.ndarray        # corrected drone position (world)
     yaw: float            # corrected heading
     std: float
@@ -128,6 +135,7 @@ class MapFix:
 
 
 class MapMatcher:
+    """Orthorectifies frames and matches them against a FloorMap (CLAHE + ORB + RANSAC)."""
     def __init__(self, K: np.ndarray, res: float = 0.01, patch_m: float = 3.0, search_m: float = 1.2,
                  min_inliers: int = 25, n_features: int = 1500):
         self.K = K
@@ -160,6 +168,7 @@ class MapMatcher:
         return self.clahe.apply(patch), valid, x_top, y_left
 
     def teach(self, fmap: FloorMap, image, pos, att) -> None:
+        """Paint one frame into the map at the given (good) pose estimate."""
         patch, valid, x_top, y_left = self.orthorectify(image, pos, att)
         # weight the centre of the frame more (less lens / attitude error)
         n = patch.shape[0]
@@ -169,6 +178,7 @@ class MapMatcher:
         fmap.add(patch, x_top, y_left, wt.astype(np.float32))
 
     def match(self, fmap: FloorMap, image, est_pos, est_att, est_yaw: float) -> MapFix | None:
+        """Match one frame near the estimated pose; returns a MapFix or None."""
         import time
         t0 = time.perf_counter()
         self.stats["tries"] += 1

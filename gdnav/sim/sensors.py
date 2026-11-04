@@ -16,6 +16,7 @@ from gdnav.sim.world import World
 
 @dataclass
 class ImuSample:
+    """Accelerometer (specific force) and gyro sample in the body frame."""
     t: float
     accel: np.ndarray  # body specific force, m/s^2
     gyro: np.ndarray   # body rates, rad/s
@@ -23,6 +24,7 @@ class ImuSample:
 
 @dataclass
 class FlowSample:
+    """Optical-flow velocity (already scaled by range), quality and validity."""
     t: float
     vel_body: np.ndarray  # metric body-frame horizontal velocity (flow * range)
     quality: int          # 0..255 like PX4 OPTICAL_FLOW quality
@@ -30,6 +32,7 @@ class FlowSample:
 
 
 class SensorSuite:
+    """IMU, flow, rangefinder, baro, magnetometer and depth-fan models with noise and biases."""
     def __init__(self, cfg: dict, world: World, rng: np.random.Generator):
         self.cfg = cfg
         self.world = world
@@ -46,6 +49,7 @@ class SensorSuite:
         self.flow_degraded = False
 
     def imu(self, t: float, quad: Quadrotor, dt: float) -> ImuSample:
+        """IMU sample with noise and random-walk biases."""
         c = self.cfg["imu"]
         self.accel_bias += self.rng.normal(0, c["accel_bias_rw"] * math.sqrt(dt), 3)
         acc = quad.specific_force_body() + self.accel_bias + self.rng.normal(0, c["accel_noise"], 3)
@@ -53,6 +57,7 @@ class SensorSuite:
         return ImuSample(t, acc, gyro)
 
     def flow(self, t: float, quad: Quadrotor) -> FlowSample:
+        """Optical-flow sample (scale error, height-dependent noise, quality loss on featureless floors)."""
         c = self.cfg["flow"]
         h = -quad.p[2]
         yaw = quad.att[2]
@@ -71,17 +76,20 @@ class SensorSuite:
         return FlowSample(t, meas, quality, valid)
 
     def range(self, quad: Quadrotor) -> float:
+        """Downward rangefinder slant distance."""
         c = self.cfg["rangefinder"]
         r, p = quad.att[0], quad.att[1]
         d = max(0.0, -quad.p[2]) / max(0.3, math.cos(r) * math.cos(p))
         return float(np.clip(d + self.rng.normal(0, c["noise"]), 0.0, c["max_range_m"]))
 
     def baro(self, quad: Quadrotor, dt: float) -> float:
+        """Barometric altitude with drift."""
         c = self.cfg["baro"]
         self.baro_offset += self.rng.normal(0, c["drift_per_s"] * math.sqrt(dt))
         return float(-quad.p[2] + self.baro_offset + self.rng.normal(0, c["noise"]))
 
     def mag_heading(self, quad: Quadrotor) -> float:
+        """Magnetometer heading with bias and noise."""
         c = self.cfg["mag"]
         return wrap_pi(quad.att[2] + self.mag_bias + self.rng.normal(0, math.radians(c["noise_deg"])))
 

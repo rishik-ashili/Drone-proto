@@ -11,6 +11,7 @@ from gdnav.common.config import MISSIONS_DIR, load_yaml, resolve
 
 @dataclass
 class Waypoint:
+    """One mission waypoint in local NED metres, with an optional landmark to align on."""
     id: int
     x: float
     y: float
@@ -20,11 +21,13 @@ class Waypoint:
 
     @property
     def xy(self) -> np.ndarray:
+        """Waypoint position (north, east) as an array."""
         return np.array([self.x, self.y])
 
 
 @dataclass
 class Mission:
+    """A mission file (plan section 9 format): altitude, waypoints and finish behaviour."""
     name: str
     world: str
     altitude_m: float
@@ -37,6 +40,7 @@ class Mission:
 
     @classmethod
     def load(cls, name_or_path: str | Path) -> "Mission":
+        """Load missions/<name>.yaml (or a path); only the local_ned frame is accepted."""
         d = load_yaml(resolve(name_or_path, MISSIONS_DIR))
         if d.get("frame", "local_ned") != "local_ned":
             raise ValueError("Only local_ned missions are supported (no GPS).")
@@ -51,12 +55,14 @@ class Mission:
                    precision_land_landmark=d.get("precision_land_landmark"), raw=d)
 
     def to_dict(self) -> dict:
+        """Serialisable summary for logs and the dashboard."""
         return {"name": self.name, "altitude_m": self.altitude_m, "on_finish": self.on_finish,
                 "waypoints": [w.__dict__ for w in self.waypoints],
                 "precision_land_landmark": self.precision_land_landmark}
 
 
 class WaypointManager:
+    """Tracks progress through a mission and stores per-waypoint results."""
     def __init__(self, mission: Mission):
         self.mission = mission
         self.index = 0
@@ -64,22 +70,27 @@ class WaypointManager:
 
     @property
     def current(self) -> Waypoint | None:
+        """The waypoint being flown, or None when finished."""
         if self.index < len(self.mission.waypoints):
             return self.mission.waypoints[self.index]
         return None
 
     @property
     def done(self) -> bool:
+        """True once every waypoint has been handled."""
         return self.index >= len(self.mission.waypoints)
 
     def altitude(self, wp: Waypoint | None = None) -> float:
+        """Flight altitude for a waypoint (its own alt or the mission altitude)."""
         if wp is not None and wp.alt is not None:
             return float(wp.alt)
         return self.mission.altitude_m
 
     def advance(self, result: dict) -> None:
+        """Record the result of the current waypoint and move to the next."""
         self.results.append(result)
         self.index += 1
 
     def skip_remaining(self) -> None:
+        """Drop the remaining waypoints (return to start, land)."""
         self.index = len(self.mission.waypoints)

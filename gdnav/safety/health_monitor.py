@@ -15,6 +15,7 @@ ACTION_RANK = {"none": 0, "warn": 1, "hold": 2, "rts": 3, "land": 4}
 
 @dataclass
 class Fault:
+    """An active fault with its recommended action and start time."""
     name: str
     action: str
     message: str
@@ -22,6 +23,7 @@ class Fault:
 
 
 class HealthMonitor:
+    """Watches link, battery, camera, estimate quality, geofence and PX4 failsafes."""
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.faults: dict[str, Fault] = {}
@@ -40,6 +42,7 @@ class HealthMonitor:
 
     def evaluate(self, now: float, telem: Telemetry, frame_t: float | None, image_stats: tuple | None,
                  flying: bool, vision_needed: bool, pos_in_fence: bool) -> dict[str, Fault]:
+        """Update all faults for this tick; returns the active fault dict."""
         c = self.cfg
         # link: telemetry stops arriving
         link_age = now - telem.received_t
@@ -84,6 +87,7 @@ class HealthMonitor:
         self._set(active, name, action, msg, now)
 
     def worst_action(self) -> str:
+        """Most severe recommended action: none < warn < hold < rts < land."""
         best = "none"
         for f in self.faults.values():
             if ACTION_RANK[f.action] > ACTION_RANK[best]:
@@ -91,5 +95,6 @@ class HealthMonitor:
         return best
 
     def hold_faults_since(self) -> float | None:
+        """Start time of the oldest active hold-level fault, or None."""
         ts = [f.since for f in self.faults.values() if f.action == "hold"]
         return min(ts) if ts else None

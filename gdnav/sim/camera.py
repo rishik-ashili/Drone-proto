@@ -17,6 +17,7 @@ from gdnav.sim.world import World
 
 
 class DownwardCamera:
+    """Renders the downward camera from the floor texture with a planar homography."""
     def __init__(self, world: World, width=640, height=480, hfov_deg=80.0, rng=None):
         self.world = world
         self.w, self.h = width, height
@@ -32,6 +33,7 @@ class DownwardCamera:
         return (1.0 - 0.28 * np.clip(r, 0, 1.4) ** 2)[:, :, None]
 
     def homography(self, pos: np.ndarray, att: np.ndarray) -> np.ndarray:
+        """Ground (x, y, 1) -> image pixel homography for a camera pose."""
         R_bw = rot_from_euler(*att).T
         M = np.array([[1.0, 0.0, -pos[0]], [0.0, 1.0, -pos[1]], [0.0, 0.0, -pos[2]]])
         return self.K @ R_CAM_FROM_BODY @ R_bw @ M
@@ -43,6 +45,7 @@ class DownwardCamera:
         return pts[:, :2] / pts[:, 2:3]
 
     def render(self, pos, att, vel=None, light=1.0, noise=3.0, blur=True) -> np.ndarray:
+        """Camera image at a pose, with motion blur, vignetting, light level and noise."""
         H = self.homography(np.asarray(pos), np.asarray(att)) @ self._T
         img = cv2.warpPerspective(self.world.texture, H, (self.w, self.h), flags=cv2.INTER_LINEAR,
                                   borderMode=cv2.BORDER_CONSTANT, borderValue=self.border)

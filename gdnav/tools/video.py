@@ -17,6 +17,7 @@ GREEN, CYAN, ORANGE, WHITE, GREY = (132, 220, 61), (255, 182, 57), (67, 159, 255
 
 
 class VideoComposer:
+    """Writes demo video frames: top-down map, onboard camera and metrics HUD."""
     def __init__(self, runner, path: str, fps: int = 20, size: tuple[int, int] = (1280, 720)):
         self.r = runner
         self.W, self.H = size
@@ -31,6 +32,7 @@ class VideoComposer:
         self.base = (self.base * 0.75).astype(np.uint8)
 
     def P(self, n, e) -> tuple[int, int]:
+        """World (north, east) -> map pixel."""
         w = self.r.world
         return int((e - w.y_min) * self.s), int((w.x_max - n) * self.s)
 
@@ -67,6 +69,7 @@ class VideoComposer:
         return img
 
     def write(self) -> None:
+        """Compose and append one frame."""
         r = self.r
         frame = np.full((self.H, self.W, 3), (19, 14, 10), np.uint8)
         mp = self._map()
@@ -96,6 +99,7 @@ class VideoComposer:
         self.writer.write(frame)
 
     def close(self) -> None:
+        """Finish the file and re-encode to H.264 if ffmpeg exists."""
         self.writer.release()
         # OpenCV writes MPEG-4 Part 2; re-encode to H.264 (plays everywhere) if ffmpeg is installed
         if shutil.which("ffmpeg"):

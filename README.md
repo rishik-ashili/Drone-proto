@@ -26,6 +26,8 @@ or ROS 2 + uXRCE-DDS on the Jetson.
 
 | Document | What it is for |
 |---|---|
+| [docs/PROJECT_DOSSIER.md](docs/PROJECT_DOSSIER.md) | **Everything in one place:** what is done and left, item by item, linked to the exact code lines, tests and results |
+| [docs/CODE_REFERENCE.md](docs/CODE_REFERENCE.md) | Every file, class, function and script option, with line links (generated) |
 | [docs/YOUR_TODO.md](docs/YOUR_TODO.md) | The exact steps only you can do (PX4 SITL, hardware bring-up) |
 | [docs/STATUS.md](docs/STATUS.md) | Week-by-week status against the plan |
 | [docs/GAZEBO.md](docs/GAZEBO.md) | PX4 SITL + Gazebo step by step |

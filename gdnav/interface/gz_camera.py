@@ -31,6 +31,7 @@ def _import_gz():
 
 
 class GzCamera:
+    """Subscribes to a Gazebo camera topic; calling the object returns the latest BGR frame."""
     def __init__(self, topic: str = DEFAULT_TOPIC, size: tuple[int, int] = (640, 480)):
         Node, Image = _import_gz()
         self.size = size

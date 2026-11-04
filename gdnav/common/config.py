@@ -16,11 +16,13 @@ LOGS_DIR = REPO_ROOT / "logs"
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
+    """Read a YAML file into a dict (empty file -> {})."""
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
 def deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override into a copy of base."""
     out = copy.deepcopy(base)
     for k, v in (override or {}).items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
@@ -42,6 +44,7 @@ def resolve(path: str | Path, default_dir: Path, suffix: str = ".yaml") -> Path:
 
 
 def load_sim_config(path: str | Path | None = None, overrides: dict | None = None) -> dict:
+    """config/sim.yaml, optionally overridden by another YAML file and a dict."""
     cfg = load_yaml(CONFIG_DIR / "sim.yaml")
     if path:
         cfg = deep_merge(cfg, load_yaml(path))

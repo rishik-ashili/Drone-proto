@@ -26,6 +26,7 @@ from gdnav.common.geometry import rot_z, wrap_pi
 
 
 class LandmarkVioFusion:
+    """3-DoF (dx, dy, dyaw) Kalman correction that maps the drifting VIO frame into the landmark map frame."""
     def __init__(self, drift_per_m: float = 0.02, yaw_drift_per_m: float = math.radians(0.3),
                  gate_sigma: float = 4.0, init=(0.0, 0.0, 0.0), init_pos_std: float = 0.05,
                  init_yaw_std: float = math.radians(3.0)):
@@ -44,12 +45,14 @@ class LandmarkVioFusion:
 
     # ----------------------------------------------------------------- frames
     def to_map(self, p_odom: np.ndarray, yaw_odom: float) -> tuple[np.ndarray, float]:
+        """VIO-frame pose -> corrected map-frame pose."""
         dx, dy, dyaw = self.x
         p = np.asarray(p_odom, float).copy()
         p[:2] = rot_z(dyaw) @ p[:2] + np.array([dx, dy])
         return p, wrap_pi(yaw_odom + dyaw)
 
     def vel_to_map(self, v_odom: np.ndarray) -> np.ndarray:
+        """VIO-frame velocity -> map frame (rotation only)."""
         v = np.asarray(v_odom, float).copy()
         v[:2] = rot_z(self.x[2]) @ v[:2]
         return v
@@ -122,4 +125,5 @@ class LandmarkVioFusion:
 
     @property
     def correction_std(self) -> float:
+        """1-sigma horizontal uncertainty of the current correction (m)."""
         return float(math.sqrt(max(self.P[0, 0], self.P[1, 1])))

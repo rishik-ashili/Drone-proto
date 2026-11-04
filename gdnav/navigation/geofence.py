@@ -5,11 +5,13 @@ import numpy as np
 
 
 class Geofence:
+    """Rectangular software geofence (local NED) with an altitude ceiling."""
     def __init__(self, x_min, x_max, y_min, y_max, max_alt, margin=0.5):
         self.b = (x_min + margin, x_max - margin, y_min + margin, y_max - margin)
         self.max_alt = max_alt
 
     def clamp(self, xyz: np.ndarray) -> np.ndarray:
+        """Clamp a position setpoint inside the fence."""
         out = xyz.copy()
         out[0] = np.clip(out[0], self.b[0], self.b[1])
         out[1] = np.clip(out[1], self.b[2], self.b[3])
@@ -17,6 +19,7 @@ class Geofence:
         return out
 
     def breached(self, pos: np.ndarray, slack: float = 0.3) -> bool:
+        """True if the position estimate is outside the fence (with slack)."""
         x, y = pos[0], pos[1]
         return (x < self.b[0] - slack or x > self.b[1] + slack or y < self.b[2] - slack
                 or y > self.b[3] + slack or -pos[2] > self.max_alt + 0.5)

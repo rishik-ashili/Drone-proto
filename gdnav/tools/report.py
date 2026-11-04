@@ -30,6 +30,7 @@ def _fig_to_b64(fig) -> str:
 
 
 def build_report(log_path: str | Path, out_dir: str | Path | None = None) -> Path:
+    """Write PNG plots and a self-contained report.html for one flight log; returns its path."""
     log_path = Path(log_path)
     data = read_log(log_path)
     meta = data["meta"][0] if data["meta"] else {}

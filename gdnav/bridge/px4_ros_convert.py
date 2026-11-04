@@ -50,6 +50,7 @@ def set_mode_params(mode: str) -> tuple[float, float, float]:
 
 
 def nav_state_name(nav_state: int) -> str:
+    """VehicleStatus.nav_state number -> mode name used by the state machine."""
     return NAV_STATE_NAMES.get(int(nav_state), f"NAV_{int(nav_state)}")
 
 
@@ -63,6 +64,7 @@ def quat_to_euler(q) -> np.ndarray:
 
 
 def euler_to_quat(roll: float, pitch: float, yaw: float) -> np.ndarray:
+    """Roll, pitch, yaw -> PX4 quaternion [w, x, y, z] (FRD body -> NED)."""
     cr, sr = math.cos(roll / 2), math.sin(roll / 2)
     cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
     cy, sy = math.cos(yaw / 2), math.sin(yaw / 2)

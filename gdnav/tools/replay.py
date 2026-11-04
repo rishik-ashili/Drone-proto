@@ -20,6 +20,7 @@ class _Cv:
 
 
 class ReplayRunner:
+    """Plays a JSONL flight log back through the dashboard (no simulation)."""
     def __init__(self, log_path):
         d = read_log(log_path)
         self.meta = d["meta"][0]
@@ -41,17 +42,21 @@ class ReplayRunner:
         self.t = 0.0
 
     def start(self):
+        """Start playback."""
         self.playing = True
 
     def inject(self, *a, **k):
+        """Not available in replay."""
         raise ValueError("fault injection is not available in replay mode")
 
     clear = inject
 
     def close(self):
+        """Nothing to release."""
         pass
 
     def tick(self):
+        """Advance one logged tick and extend the trail."""
         if not self.playing or self.i >= len(self.ticks) - 1:
             return
         self.i += 1
@@ -64,6 +69,7 @@ class ReplayRunner:
             self.trail.append([self.t, tp[0], tp[1], -tp[2], ep[0], ep[1], -ep[2], dp[0], dp[1], e, dr])
 
     def snapshot(self) -> dict:
+        """Dashboard snapshot rebuilt from the current log record."""
         k = self.ticks[self.i]
         evs = [{"t": e["t"], "type": e["type"], "msg": e["msg"]} for e in self.events_all if e["t"] <= k["t"]]
         wps = [e["data"] for e in self.events_all if e["type"] == "waypoint" and e["t"] <= k["t"]]

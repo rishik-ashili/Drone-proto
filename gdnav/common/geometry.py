@@ -33,6 +33,7 @@ def rot_from_euler(roll: float, pitch: float, yaw: float) -> np.ndarray:
 
 
 def rot_z(yaw: float) -> np.ndarray:
+    """2-D rotation matrix for a heading angle."""
     c, s = math.cos(yaw), math.sin(yaw)
     return np.array([[c, -s], [s, c]])
 
@@ -44,5 +45,6 @@ R_CAM_FROM_BODY = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
 
 def camera_matrix(width: int, height: int, hfov_deg: float) -> np.ndarray:
+    """Pinhole intrinsics K from image size and horizontal field of view."""
     fx = (width / 2.0) / math.tan(math.radians(hfov_deg) / 2.0)
     return np.array([[fx, 0.0, width / 2.0], [0.0, fx, height / 2.0], [0.0, 0.0, 1.0]])

@@ -32,6 +32,7 @@ from gdnav.sim.world import World
 
 
 class MissionRunner:
+    """The companion main loop wired to any VehicleInterface; also logging, metrics and snapshots."""
     def __init__(self, cfg: dict, mission: Mission, world: World, vehicle: VehicleInterface,
                  log_path: str | Path | None = None, landmark_correction: bool = True,
                  annotate: bool = True, fault_schedule: list[tuple[str, float, float]] | None = None):
@@ -126,25 +127,32 @@ class MissionRunner:
 
     # ------------------------------------------------------------ commands
     def start(self) -> None:
+        """Start the mission."""
         self.sm.start()
 
     # operator / pilot commands (dashboard)
     def take_control(self) -> bool:
+        """Pilot takes over in Position mode."""
         return self.sm.take_control()
 
     def resume(self) -> bool:
+        """Return control to the mission (or hold here)."""
         return self.sm.resume()
 
     def goto(self, xy) -> bool:
+        """Fly to a clicked point (north, east), then hold."""
         return self.sm.goto_point(xy)
 
     def land_now(self) -> None:
+        """Land immediately."""
         self.sm.land_now()
 
     def sticks(self, values) -> None:
+        """Forward pilot stick input [forward, right, up, yaw] to the vehicle."""
         self.vehicle.manual_control(values)
 
     def inject(self, name: str, duration: float | None = None) -> None:
+        """Inject a simulated fault (optionally for a duration)."""
         if name == "false_landmark":
             self.cv.inject_false = True
         elif self.is_sim:
@@ -157,6 +165,7 @@ class MissionRunner:
         self._event("fault", f"Injected: {FAULTS.get(name, name)}", {"fault": name})
 
     def clear(self, name: str) -> None:
+        """Clear an injected fault."""
         if name == "false_landmark":
             self.cv.inject_false = False
         elif self.is_sim:
@@ -167,6 +176,7 @@ class MissionRunner:
 
     # ---------------------------------------------------------------- tick
     def tick(self) -> None:
+        """One 20 Hz cycle: VIO, perception + fixes, floor map, health, state machine, logging."""
         w0 = time.perf_counter()
         if self.is_sim:
             self.vehicle.advance(self.dt)
@@ -338,6 +348,7 @@ class MissionRunner:
         self.logger.write("tick", **rec)
 
     def metrics(self) -> dict:
+        """Current accuracy, perception, safety and battery metrics."""
         res = self.sm.mgr.results
         reach = [r["reach_error_m"] for r in res if "reach_error_m" in r]
         s = self.err_stats
@@ -384,6 +395,7 @@ class MissionRunner:
         return m
 
     def finish(self) -> dict:
+        """Save the taught map (if any), compute the summary and log it."""
         if self.teach_map is not None and self.map_stats["taught"]:
             out = Path(self.map_cfg["teach_out"])
             out = out if out.is_absolute() else REPO_ROOT / out
@@ -397,12 +409,14 @@ class MissionRunner:
         return self.summary
 
     def close(self) -> None:
+        """Finish (if needed) and close the log."""
         if self.summary is None:
             self.finish()
         self.logger.close()
 
     # ------------------------------------------------------------ snapshot
     def snapshot(self) -> dict:
+        """JSON-serialisable state for the dashboard / status topic."""
         telem = self.vehicle.telemetry()
         tr = self._truth()
         perc = self.last_perception
@@ -463,6 +477,7 @@ def build_sim_runner(mission_name: str = "investor_demo", config_path: str | Non
                      annotate: bool = True, fault_schedule=None, overrides: dict | None = None,
                      seed: int | None = None, nav_source: str | None = None,
                      floor_map: str | None = None, teach_out: str | None = None) -> MissionRunner:
+    """Build a MissionRunner on the built-in simulator from names and options."""
     cfg = load_sim_config(config_path, overrides)
     if nav_source:
         cfg["nav_source"] = nav_source

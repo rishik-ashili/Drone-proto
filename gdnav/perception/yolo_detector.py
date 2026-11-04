@@ -18,6 +18,7 @@ from gdnav.perception.detections import Detection
 
 
 class YoloDetector:
+    """YOLOv8/YOLO11 ONNX detector (ONNX Runtime CPU/CUDA/TensorRT, or OpenCV DNN)."""
     def __init__(self, model_path: str | Path, class_names: list[str] | None = None,
                  imgsz: int = 320, conf: float = 0.45, iou: float = 0.5):
         self.path = Path(model_path)
@@ -72,6 +73,7 @@ class YoloDetector:
         return canvas, s, left, top
 
     def detect(self, bgr: np.ndarray) -> list[Detection]:
+        """Letterbox, infer, decode and NMS one BGR image into Detection objects."""
         t0 = time.perf_counter()
         canvas, s, left, top = self._letterbox(bgr)
         blob = cv2.dnn.blobFromImage(canvas, 1 / 255.0, swapRB=True)

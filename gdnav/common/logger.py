@@ -35,6 +35,7 @@ def _default(o: Any):
 
 
 class FlightLogger:
+    """Writes the JSON Lines flight log (meta / tick / event / summary records)."""
     def __init__(self, path: str | Path | None):
         self.path = Path(path) if path else None
         self._f = None
@@ -43,6 +44,7 @@ class FlightLogger:
             self._f = open(self.path, "w", encoding="utf-8")
 
     def write(self, kind: str, **data: Any) -> None:
+        """Append one record of the given kind."""
         if not self._f:
             return
         data["kind"] = kind
@@ -50,16 +52,19 @@ class FlightLogger:
         self._f.write(json.dumps(data, default=_default) + "\n")
 
     def flush(self) -> None:
+        """Flush buffered records to disk."""
         if self._f:
             self._f.flush()
 
     def close(self) -> None:
+        """Flush and close the log file."""
         if self._f:
             self._f.close()
             self._f = None
 
 
 def read_log(path: str | Path) -> dict[str, list[dict]]:
+    """Load a JSONL flight log, grouped by record kind."""
     out: dict[str, list[dict]] = {"meta": [], "tick": [], "event": [], "summary": []}
     with open(path, "r", encoding="utf-8") as f:
         for line in f:

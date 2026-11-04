@@ -16,6 +16,7 @@ G = 9.81
 
 
 class Battery:
+    """4S LiPo model: remaining capacity, voltage sag and current drain."""
     def __init__(self, capacity_mah: float, cells: int):
         self.capacity_ah = capacity_mah / 1000.0
         self.cells = cells
@@ -24,24 +25,29 @@ class Battery:
 
     @property
     def remaining(self) -> float:
+        """Remaining capacity fraction 0..1."""
         return max(0.0, 1.0 - self.used_ah / self.capacity_ah)
 
     @property
     def voltage(self) -> float:
         # simple LiPo curve 4.2 V -> 3.5 V per cell plus internal resistance sag
+        """Pack voltage under the present load."""
         soc = self.remaining
         v_cell = 3.5 + 0.55 * soc + 0.15 * soc ** 4
         return self.cells * v_cell - 0.012 * self.current
 
     def drain(self, current_a: float, dt: float) -> None:
+        """Integrate current over dt."""
         self.current = current_a
         self.used_ah += current_a * dt / 3600.0
 
     def set_remaining(self, frac: float) -> None:
+        """Force the remaining fraction (low-battery fault injection)."""
         self.used_ah = self.capacity_ah * (1.0 - frac)
 
 
 class Quadrotor:
+    """Rigid-body quadrotor: thrust, first-order attitude response, drag, wind, ground contact, battery."""
     def __init__(self, cfg: dict, pos=(0.0, 0.0, 0.0), yaw: float = 0.0):
         self.m = cfg["mass_kg"]
         self.max_thrust = cfg["max_thrust_n"]
@@ -62,6 +68,7 @@ class Quadrotor:
 
     @property
     def hover_thrust(self) -> float:
+        """Thrust needed to hover (N)."""
         return self.m * G
 
     def specific_force_body(self) -> np.ndarray:
@@ -71,6 +78,7 @@ class Quadrotor:
 
     def step(self, dt: float, thrust: float, roll_cmd: float, pitch_cmd: float,
              yaw_rate_cmd: float, wind: np.ndarray, armed: bool) -> None:
+        """Integrate the dynamics over dt for the commanded thrust, tilt and yaw rate."""
         if not armed:
             thrust = 0.0
         thrust = float(np.clip(thrust, 0.0, self.max_thrust))

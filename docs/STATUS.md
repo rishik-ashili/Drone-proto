@@ -1,5 +1,8 @@
 # Status against the phase plan
 
+Summary view. The same items, with links to the exact code, tests and remaining steps, are in
+[PROJECT_DOSSIER.md](PROJECT_DOSSIER.md) section 4.
+
 The plan has 48 deliverables and exit criteria. **21 are done, 20 are partly done, and 7 are left.**
 All 7 that are left need physical hardware.
 

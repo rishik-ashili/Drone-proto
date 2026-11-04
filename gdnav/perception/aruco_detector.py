@@ -8,12 +8,14 @@ from gdnav.perception.detections import Detection
 
 
 class ArucoDetector:
+    """OpenCV ArUco (DICT_4X4_50) detector with sub-pixel corner refinement."""
     def __init__(self, dictionary: int = cv2.aruco.DICT_4X4_50):
         params = cv2.aruco.DetectorParameters()
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
         self.det = cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(dictionary), params)
 
     def detect(self, bgr: np.ndarray) -> list[Detection]:
+        """Decoded tags in a BGR image as Detection objects (with corners and ids)."""
         gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = self.det.detectMarkers(gray)
         out: list[Detection] = []

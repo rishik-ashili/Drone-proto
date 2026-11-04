@@ -19,9 +19,12 @@ test:             ## unit + mission tests
 benchmark:        ## exit-criteria campaign -> docs/benchmark_results.md
 	.venv/bin/python scripts/benchmark.py
 
+docs:             ## regenerate docs/CODE_REFERENCE.md and docs/PROJECT_DOSSIER.md
+	.venv/bin/python scripts/gen_code_reference.py
+
 train:            ## regenerate dataset + retrain the YOLO landmark model
 	.venv/bin/pip install -r requirements-train.txt
 	.venv/bin/python scripts/generate_dataset.py
 	.venv/bin/python scripts/train_landmark_model.py
 
-.PHONY: setup demo sim video test benchmark train
+.PHONY: setup demo sim video test benchmark train docs

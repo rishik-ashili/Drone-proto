@@ -46,6 +46,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class Px4MavsdkVehicle(VehicleInterface):
+    """VehicleInterface over MAVSDK-Python for PX4 SITL or a Pixhawk (asyncio loop in a thread)."""
     def __init__(self, url: str = "udp://:14540", frame_source: Callable[[], np.ndarray | None] | None = None,
                  connect_timeout: float = 30.0):
         if System is None:
