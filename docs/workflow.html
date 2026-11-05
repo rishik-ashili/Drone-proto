@@ -1,0 +1,698 @@
+<!doctype html>
+<!-- Standalone copy of the interactive workflow map. Open this file in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Drone-proto Workflow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a flight-test engineering sheet. Wide diagram bands with an instrument-panel feel,
+   numbered sections only where the order is real (phases, verification ladder). */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --surface-2: #e8ecf1;
+  --ink: #131d29;
+  --muted: #566476;
+  --line: #c7d0db;
+  --accent: #d9531e;          /* hi-vis orange, as on airframes and safety gear */
+  --accent-soft: #fbe3d7;
+  --done: #1d8556;
+  --partly: #b8800b;
+  --left: #7d8899;
+  --code: #2d64b3;
+  --ai: #7650bf;
+  --sim: #127a7a;
+  --hw: #c24a1a;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d131a; --surface: #151e28; --surface-2: #1c2733; --ink: #e3e9f0; --muted: #94a2b3;
+    --line: #2b3847; --accent: #ff7b40; --accent-soft: #3a2318; --done: #3cc283; --partly: #e3ad3c;
+    --left: #6f7b8c; --code: #6aa0ef; --ai: #a989ec; --sim: #3fc0bf; --hw: #ff8a55; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d131a; --surface: #151e28; --surface-2: #1c2733; --ink: #e3e9f0; --muted: #94a2b3;
+  --line: #2b3847; --accent: #ff7b40; --accent-soft: #3a2318; --done: #3cc283; --partly: #e3ad3c;
+  --left: #6f7b8c; --code: #6aa0ef; --ai: #a989ec; --sim: #3fc0bf; --hw: #ff8a55; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: .2px; }
+h1 { font-size: clamp(34px, 6vw, 56px); font-weight: 700; line-height: 1; }
+h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 600; line-height: 1.1; }
+h3 { font-size: 20px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--code); }
+[hidden] { display: none !important; }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+
+/* header */
+.hero { display: grid; gap: 18px; padding-bottom: 28px; border-bottom: 2px solid var(--ink); }
+.hero-top { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: end; justify-content: space-between; }
+.hero p.lede { font-size: 18px; max-width: 62ch; }
+.frame-note { font-family: var(--font-mono); font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; background: var(--surface); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.kpi { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.kpi b { font-family: var(--font-display); font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.kpi span { font-size: 12.5px; color: var(--muted); }
+.kpi b small { font-size: 16px; color: var(--muted); font-weight: 500; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px; padding-block: 16px 0; }
+nav.toc a { font-family: var(--font-mono); font-size: 12.5px; text-decoration: none; color: var(--ink); border: 1px solid var(--line); background: var(--surface); padding: 5px 10px; border-radius: 999px; }
+nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+
+section.band { padding-block: 44px 8px; display: grid; gap: 16px; scroll-margin-top: 12px; }
+.band-head { display: grid; gap: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.legend .ln { display: inline-block; width: 26px; height: 0; border-top: 2px solid var(--muted); margin-right: 6px; vertical-align: 3px; }
+.legend .ln.dash { border-top-style: dashed; }
+.legend .ln.alert { border-top-color: var(--accent); }
+.s-done { background: var(--done); } .s-partly { background: var(--partly); } .s-left { background: transparent; border: 2px solid var(--left); }
+.s-next { background: transparent; border: 2px dashed var(--left); }
+
+/* programme map */
+.prog-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.prog { display: grid; grid-template-columns: 150px repeat(5, minmax(190px, 1fr)); min-width: 1100px; }
+.prog > div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px; min-width: 0; }
+.prog > div:nth-child(6n) { border-right: 0; }
+.prog .ph { background: var(--surface-2); display: grid; gap: 2px; }
+.prog .ph b { font-family: var(--font-display); font-size: 21px; font-weight: 600; line-height: 1.05; }
+.prog .ph span { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.prog .ph .goal { font-family: var(--font-body); font-size: 12.5px; color: var(--ink); margin-top: 4px; }
+.prog .lane { display: grid; align-content: start; gap: 4px; position: relative; padding-left: 16px; }
+.prog .lane::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--lane); }
+.prog .lane b { font-family: var(--font-display); font-size: 19px; font-weight: 600; line-height: 1.05; }
+.prog .lane span { font-size: 12px; color: var(--muted); }
+.cell { display: grid; align-content: start; gap: 6px; }
+.chip { display: flex; gap: 8px; align-items: flex-start; text-align: left; width: 100%; font: inherit; font-size: 13px; line-height: 1.35; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 9px; cursor: pointer; }
+.chip:hover { border-color: var(--ink); }
+.chip:focus-visible, .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip i { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; }
+.chip.sel, .node.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* diagrams */
+.dg-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.dg { position: relative; display: grid; padding: 26px 22px; justify-content: start; }
+.dg svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.dg .edge { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.dg .edge.dash { stroke-dasharray: 6 5; }
+.dg .edge.alert { stroke: var(--accent); }
+.dg .elabel { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.dg .elabel.alert { fill: var(--accent); }
+.dg .marker { fill: var(--muted); } .dg .marker.alert { fill: var(--accent); }
+.node { position: relative; z-index: 1; text-align: left; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-top: 4px solid var(--kind, var(--line)); border-radius: var(--radius); padding: 8px 10px 9px; cursor: pointer; display: grid; gap: 3px; align-content: start; min-width: 0; }
+.node:hover { border-color: var(--ink); border-top-color: var(--kind, var(--ink)); }
+.node b { font-family: var(--font-display); font-size: 17.5px; font-weight: 600; line-height: 1.08; }
+.node span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.node .tag { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.node .tag i { width: 8px; height: 8px; border-radius: 50%; }
+.node.future { border-style: dashed; background: transparent; }
+.k-sensor { --kind: var(--sim); } .k-companion { --kind: var(--code); } .k-px4 { --kind: var(--hw); } .k-ai { --kind: var(--ai); }
+.k-state { --kind: var(--code); } .k-fail { --kind: var(--accent); } .k-op { --kind: var(--sim); }
+.grouplabel { position: absolute; z-index: 0; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+
+/* ladder */
+.ladder { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 12px; }
+.rung { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding: 0 0 18px; position: relative; }
+.rung .num { position: relative; left: -19px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 18px; background: var(--surface); border: 2px solid var(--left); color: var(--ink); }
+.rung.done .num { background: var(--done); border-color: var(--done); color: var(--surface); }
+.rung.partly .num { border-color: var(--partly); color: var(--partly); }
+.rung .body { display: grid; gap: 4px; padding-top: 4px; margin-left: -16px; }
+.rung .body h3 { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.pill { font-family: var(--font-mono); font-size: 11px; letter-spacing: .5px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.done { color: var(--done); } .pill.partly { color: var(--partly); } .pill.left { color: var(--left); }
+.rung .cmd { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; overflow-x: auto; white-space: nowrap; max-width: 100%; }
+
+/* catalogue */
+.cat-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table.cat { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px; }
+table.cat th { text-align: left; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 2px solid var(--ink); background: var(--surface-2); }
+table.cat td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.cat td:first-child { font-weight: 600; }
+table.cat tr.group td { background: var(--surface-2); font-family: var(--font-display); font-size: 17px; font-weight: 600; padding-block: 6px; }
+table.cat code { white-space: nowrap; }
+
+.results { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.res { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.bars { display: grid; gap: 7px; }
+.bar { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) 52px; gap: 8px; align-items: center; font-size: 12.5px; }
+.bar .track { height: 10px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--code); }
+.bar .fill.base { background: var(--left); }
+.bar .fill.good { background: var(--done); }
+.bar b { font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; font-size: 12.5px; }
+
+/* detail panel */
+.detail { position: fixed; z-index: 30; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100vw - 32px)); max-height: min(72vh, 640px); overflow-y: auto; background: var(--surface); border: 1px solid var(--ink); border-radius: var(--radius); box-shadow: 0 14px 40px rgba(10, 20, 30, .22); padding: 16px 18px 18px; display: grid; gap: 10px; }
+.detail header { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.detail h3 { font-size: 24px; line-height: 1.05; }
+.detail .close { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: var(--radius); padding: 4px 10px; cursor: pointer; }
+.detail .close:focus-visible { outline: 2px solid var(--accent); }
+.detail dl { margin: 0; display: grid; gap: 8px; }
+.detail dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.detail dd { margin: 0; font-size: 14px; }
+.detail ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.detail li { font-size: 13.5px; }
+.detail .codes a { font-family: var(--font-mono); font-size: 12.5px; word-break: break-all; }
+.hint { font-size: 13px; color: var(--muted); }
+footer { padding-block: 44px 0; color: var(--muted); font-size: 13px; display: grid; gap: 6px; border-top: 1px solid var(--line); margin-top: 40px; }
+@media (max-width: 720px) {
+  .hero p.lede { font-size: 16px; }
+  .detail { left: max(16px, env(safe-area-inset-left, 0px)); width: auto; max-height: 60vh; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .detail { animation: rise .18s ease-out; }
+  @keyframes rise { from { transform: translateY(10px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">GPS-denied waypoint navigation · Pixhawk 6C / PX4 v1.17 · Jetson Orin</div>
+    <div class="hero-top">
+      <h1>Drone-proto workflow</h1>
+      <div class="frame-note">frame: local NED, metres from takeoff · x north · y east · z down · no GNSS</div>
+    </div>
+    <p class="lede">We are building a quadcopter that flies a route with no GPS. It measures its own motion with optical flow, the IMU and later stereo VIO. It recognises known landmarks with a YOLO network and ArUco tags, and uses each sighting to cancel the drift. This page shows what we build, in what order, with which models and algorithms, and where each step stands today.</p>
+    <div class="kpis" aria-label="Headline results from the simulator">
+      <div class="kpi"><b>0.57 → 0.09<small> m</small></b><span>mean waypoint error: optical flow alone → with landmark AI</span></div>
+      <div class="kpi"><b>0.07<small> m</small></b><span>with the floor map and no landmarks at all (teach and repeat)</span></div>
+      <div class="kpi"><b>10 / 10</b><span>failsafe cases respond as specified</span></div>
+      <div class="kpi"><b>0.904</b><span>landmark model v2, mAP50-95 on held-out images</span></div>
+      <div class="kpi"><b>21 · 20 · 7</b><span>plan items done · partly · left (all 7 need hardware)</span></div>
+    </div>
+    <nav class="toc" aria-label="Sections">
+      <a href="#programme">Programme map</a><a href="#flight-loop">In-flight loop</a><a href="#ai-pipeline">AI pipeline</a>
+      <a href="#mission-logic">Mission logic</a><a href="#ladder">Sim to airframe</a><a href="#algorithms">Models and algorithms</a><a href="#results">Results</a>
+    </nav>
+  </header>
+
+  <section class="band" id="programme">
+    <div class="band-head">
+      <div class="eyebrow">1 · What we build, phase by phase</div>
+      <h2>Programme map: five phases, four tracks</h2>
+      <p class="muted">Columns are the plan's phases (10 weeks). Rows are the tracks of work. Select any item for what it is, how it works, the code that implements it and what is left.</p>
+    </div>
+    <div class="legend"><span><i class="s-done"></i>Done (built and tested in simulation)</span><span><i class="s-partly"></i>Partly (written, or simulation only)</span><span><i class="s-left"></i>Left (needs hardware)</span><span><i class="s-next"></i>Optional next step</span></div>
+    <div class="prog-scroll"><div class="prog" id="prog"></div></div>
+  </section>
+
+  <section class="band" id="flight-loop">
+    <div class="band-head">
+      <div class="eyebrow">2 · What happens in flight, 20 times a second</div>
+      <h2>In-flight loop: sensors to motors</h2>
+      <p class="muted">The companion computer (laptop, Raspberry Pi, later the Jetson) runs perception, drift correction, safety and the mission. PX4 on the Pixhawk runs the estimator and the flight control. The same code drives the simulator, PX4 SITL and the real drone.</p>
+    </div>
+    <div class="legend"><span><i style="background:var(--sim)"></i>sensor</span><span><i style="background:var(--code)"></i>companion computer</span><span><i style="background:var(--hw)"></i>Pixhawk / PX4</span><span><span class="ln"></span>data</span><span><span class="ln dash"></span>VIO mode / optional</span><span><span class="ln alert"></span>failsafe command</span></div>
+    <div class="dg-scroll"><div class="dg" id="dg-loop" style="--cw: 146px; --cg: 66px; --rg: 34px;"></div></div>
+  </section>
+
+  <section class="band" id="ai-pipeline">
+    <div class="band-head">
+      <div class="eyebrow">3 · How the landmark AI is made</div>
+      <h2>AI pipeline: synthetic data to an engine on the drone</h2>
+      <p class="muted">The simulator renders and labels its own training images, so labels are exact and free. Public data broadens the helipad class. Real photos of the printed landmarks are the next loop, shown dashed.</p>
+    </div>
+    <div class="dg-scroll"><div class="dg" id="dg-ai" style="--cw: 150px; --cg: 66px; --rg: 34px;"></div></div>
+  </section>
+
+  <section class="band" id="mission-logic">
+    <div class="band-head">
+      <div class="eyebrow">4 · How the drone decides what to do</div>
+      <h2>Mission logic: the state machine</h2>
+      <p class="muted">Each state streams Offboard setpoints to PX4 from the GPS-free estimate. The health monitor can take over from any flying state. The pilot can always take control in Position mode.</p>
+    </div>
+    <div class="dg-scroll"><div class="dg" id="dg-sm" style="--cw: 132px; --cg: 70px; --rg: 40px; padding-left: 44px;"></div></div>
+  </section>
+
+  <section class="band" id="ladder">
+    <div class="band-head">
+      <div class="eyebrow">5 · From simulation to the airframe</div>
+      <h2>Verification ladder</h2>
+      <p class="muted">Every capability climbs the same ladder (plan section 10): simulation, replay, PX4 SITL, bench with props off, tethered, then free flight. Each rung names the tool that runs it and what it proves.</p>
+    </div>
+    <div class="ladder" id="ladder-list"></div>
+  </section>
+
+  <section class="band" id="algorithms">
+    <div class="band-head">
+      <div class="eyebrow">6 · What is inside</div>
+      <h2>Models, algorithms and processes</h2>
+    </div>
+    <div class="cat-scroll"><table class="cat" id="cat"></table></div>
+  </section>
+
+  <section class="band" id="results">
+    <div class="band-head">
+      <div class="eyebrow">7 · What it achieves today (simulator, mean of 3 runs)</div>
+      <h2>Results</h2>
+      <p class="muted">Measured against simulator ground truth on the 44 m investor route with 4 landmarks and 3 pillars. The VIO rows come from a behavioural model with assumed noise values, not from a real camera.</p>
+    </div>
+    <div class="results" id="results-grid"></div>
+  </section>
+
+  <footer>
+    <div>Source: <a href="https://github.com/rishik-ashili/Drone-proto/tree/claude/blissful-ritchie-c334ci" target="_blank" rel="noopener">rishik-ashili/Drone-proto</a>, branch <code>claude/blissful-ritchie-c334ci</code>. Full item-by-item record with line links: <code>docs/PROJECT_DOSSIER.md</code>.</div>
+    <div>Status as of the pre-hardware release <code>v0.3.0-sim</code>. Nothing here has flown yet: hardware rows are the plan, not results.</div>
+  </footer>
+</div>
+
+<aside class="detail" id="detail" hidden aria-live="polite" aria-labelledby="detail-title">
+  <header><div><div class="eyebrow" id="detail-kind"></div><h3 id="detail-title"></h3></div><button class="close" id="detail-close" type="button">Close</button></header>
+  <dl id="detail-body"></dl>
+</aside>
+
+<script>
+const REPO = "https://github.com/rishik-ashili/Drone-proto/blob/claude/blissful-ritchie-c334ci/";
+const STATUS = { done: "Done", partly: "Partly", left: "Left", next: "Optional next" };
+const SCOLOR = { done: "var(--done)", partly: "var(--partly)", left: "transparent", next: "transparent" };
+
+// ------------------------------------------------------------------ data: every block
+// what = what it is, how = model / algorithm / process, code = files, left = what remains, num = measured
+const D = {
+  // programme ----------------------------------------------------------------
+  repo: { t: "Repository, launch scripts, log format", s: "done", what: "One Python package (gdnav) with run, dashboard, benchmark and PX4 scripts, and a JSON Lines log shared by every phase.", how: "Every run writes meta, tick (20 Hz), event and summary records. Reports and replay read the same file.", code: ["gdnav/common/logger.py", "scripts/run_sim.py", "scripts/run_dashboard.py", "Makefile"] },
+  docker: { t: "Docker image", s: "partly", what: "Container for the simulator and dashboard.", how: "python:3.11-slim plus requirements; serves the dashboard on port 8080.", code: ["docker/Dockerfile"], left: "Build it once on your machine (no Docker daemon in the build environment)." },
+  twin: { t: "Built-in digital twin", s: "done", what: "Physics, sensors, estimator and PX4-style controller, so the companion code can fly before any hardware exists.", how: "200 Hz rigid-body quadrotor with drag and wind. Sensors carry noise and biases (flow scale error, magnetometer bias). An EKF2 analogue drives a cascaded controller from the estimate, never the truth.", code: ["gdnav/sim/sim_vehicle.py", "gdnav/sim/quadrotor.py", "gdnav/sim/sensors.py", "gdnav/sim/estimator.py", "gdnav/sim/flight_controller.py"] },
+  square: { t: "Hello square ×5 in the simulator", s: "done", what: "Phase 0 exit criterion: 5 consecutive square flights, every waypoint within 0.5 m.", how: "Offboard position and velocity setpoints in the local frame.", code: ["missions/hello_square.yaml", "scripts/benchmark.py", "tests/test_missions.py"], num: "5/5 runs, worst reach error 0.35 m" },
+  sitl0: { t: "Square ×5 on PX4 SITL", s: "partly", what: "The same mission on the real PX4 firmware: SIH first, then Gazebo gz_x500_flow with GPS disabled.", how: "MAVSDK Offboard backend; airframe 4021 (x500 with optical flow and LW20 rangefinder).", code: ["scripts/px4_sitl.sh", "scripts/run_px4.py", "gdnav/interface/px4_mavsdk.py", "docs/GAZEBO.md"], left: "Run docs/GAZEBO.md steps 1–2 on Ubuntu 22.04/24.04." },
+  coco: { t: "YOLOv8n COCO baseline", s: "done", what: "Open-source pretrained detector used as the starting point.", how: "Ultralytics YOLOv8 nano, 3.1 M parameters, COCO weights from the Ultralytics release.", code: ["scripts/download_models.py"] },
+  cvnode: { t: "cv_node: YOLO + ArUco", s: "done", what: "Per-frame perception: detections with confidence and timestamp.", how: "YOLOv8n (ONNX, 320 px letterbox, NMS) plus OpenCV ArUco DICT_4X4_50 with sub-pixel corners. A decoded tag supersedes YOLO's tag box.", code: ["gdnav/perception/cv_node.py", "gdnav/perception/yolo_detector.py", "gdnav/perception/aruco_detector.py"], num: "17.5–28 ms per frame on a 4-core laptop CPU" },
+  localizer: { t: "Landmark localizer + calibration", s: "done", what: "Turns a pixel into metres: where the landmark is relative to the drone.", how: "Back-project the pixel through K, rotate by the estimated attitude, intersect the ground at rangefinder height. ArUco corners also give heading. ChArUco calibration feeds an undistortion remap.", code: ["gdnav/perception/landmark_localizer.py", "scripts/calibrate_camera.py"], num: "fix error under 1 cm on rendered frames; under 5 cm through strong lens distortion once calibrated", left: "Calibrate the real camera." },
+  statem: { t: "Mission state machine", s: "done", what: "TAKEOFF → GOTO → SEARCH → ALIGN → NEXT → RETURN → PRECISION LAND → LAND.", how: "One handler per state, 20 Hz, using only the estimate and confirmed landmarks. Section 4 shows the diagram.", code: ["gdnav/navigation/state_machine.py", "gdnav/navigation/mission.py"] },
+  servo: { t: "Visual servoing", s: "done", what: "Centres the drone over a landmark before confirming the waypoint.", how: "PI control on the metric offset, speed-limited to 0.6 m/s; holds for hold_s inside 12 cm.", code: ["gdnav/navigation/state_machine.py"], num: "mean waypoint reach error 0.08–0.10 m" },
+  dsv0: { t: "Synthetic dataset v0", s: "done", what: "1,600 training + 300 held-out images with exact labels.", how: "Domain randomisation: floor type, colour cast, light 0.35–1.35, height 1–4.5 m, tilt ±12°, motion blur, defocus, JPEG, distractor shapes.", code: ["scripts/generate_dataset.py"] },
+  v1: { t: "Model v1", s: "done", what: "Custom landmark detector: helipad, pad_red, pad_blue, cross_yellow, aruco_tag.", how: "Transfer learning from COCO YOLOv8n, 30 epochs on CPU, exported to ONNX opset 12.", code: ["scripts/train_landmark_model.py", "models/v1/landmarks_yolov8n.json"], num: "P 0.973 · R 0.984 · mAP50 0.994 · mAP50-95 0.893" },
+  e2e: { t: "Landmark mission end to end", s: "done", what: "Detection drives the state machine through every waypoint, around three pillars, back home, precision landing.", how: "investor_demo: 4 landmarks, 3 obstacles, 44 m.", code: ["missions/investor_demo.yaml", "tests/test_missions.py"], num: "4/4 landmarks; return-to-start error 0.02–0.07 m" },
+  gzarena: { t: "Gazebo arena + downward camera", s: "partly", what: "The same arena and landmarks inside Gazebo, with perception on Gazebo-rendered frames.", how: "World exported to SDF with the floor texture as albedo. x500_flow plus a 640×480, 80° downward camera on /gdnav/down_camera/image, read through gz-transport.", code: ["scripts/export_gazebo.py", "gazebo/models/x500_flow_cam_down/model.sdf", "gdnav/interface/gz_camera.py"], left: "Run docs/GAZEBO.md step 3." },
+  bench: { t: "Bench test, props off", s: "left", what: "Setpoints verified on the real Pixhawk.", how: "Parameter diff, health without GPS, rangefinder, vision fusion, then arm and Offboard for 3 s.", code: ["scripts/bench_check.py"], left: "Pixhawk 6C on USB; type PROPS OFF to confirm." },
+  tether: { t: "Tethered hover, GNSS off", s: "left", what: "First hover on optical flow only.", how: "Checklists section D; pass when eph stays under 0.3 m for 60 s.", code: ["docs/CHECKLISTS.md", "docs/TEST_CARDS.md"], left: "Airframe, flow sensor, rangefinder, tether." },
+  rate: { t: "Detection rate on the companion", s: "left", what: "Measured FPS and latency on the Raspberry Pi-class board.", how: "Full cv_node timing per resolution and thread count.", code: ["scripts/benchmark_perception.py"], left: "Run on the board you choose." },
+  health: { t: "Health monitor + failsafes", s: "done", what: "Watches link, battery, camera, estimate quality, geofence, VIO and PX4 failsafes.", how: "Rule chain: fault → HOLD → LAND after 10 s; battery → return at 25 %, land at 15 %; 1 s hysteresis before resuming.", code: ["gdnav/safety/health_monitor.py"], num: "10/10 failsafe cases; camera covered → hold in 0.05 s" },
+  rts: { t: "Return to start + precision landing", s: "done", what: "Flies home in the local frame (PX4's Return needs GPS) and lands on the helipad.", how: "Fly home, wait up to 8 s for the pad, servo over it while descending, land below 0.6 m.", code: ["gdnav/navigation/state_machine.py"], num: "landing 0.02–0.08 m from the takeoff point" },
+  params: { t: "PX4 parameter set", s: "done", what: "Version-controlled GPS-denied configuration.", how: "EKF2_GPS_CTRL 0, EKF2_OF_CTRL 1, range height, EKF2_EV_CTRL 9 (15 for VIO), offboard-loss Hold, battery Land, geofence Land. Names checked against the PX4 v1.17.0 source.", code: ["config/px4/gps_denied_flow.params", "scripts/apply_px4_params.py"], left: "Apply and verify on the vehicle in QGC." },
+  dash: { t: "Dashboard + pilot control", s: "done", what: "Live 3D twin, onboard camera with AI boxes, accuracy chart, failure injection, keyboard/gamepad flying, click-to-go.", how: "Standard-library HTTP server (SSE at 10 Hz, MJPEG camera) and a three.js client.", code: ["gdnav/dashboard/server.py", "gdnav/dashboard/static/app.js"] },
+  boot: { t: "Boot service (standby)", s: "partly", what: "Companion starts at power-up and never takes off on its own.", how: "systemd unit runs run_px4.py --standby; start through POST /start from the ground laptop.", code: ["deploy/systemd/gdnav-companion.service", "scripts/deploy_companion.sh", "scripts/run_px4.py"], left: "Install on the Pi or Jetson." },
+  v2: { t: "Model v2 (+ public helipads)", s: "done", what: "v1 fine-tuned with 200 MIT-licensed helipad images in a different style.", how: "12 epochs from v1 on the merged set; promoted only after beating v1 on box accuracy on both test sets.", code: ["scripts/merge_datasets.py", "scripts/fetch_public_datasets.py", "models/MODEL_CARD.md"], num: "mAP50-95 0.904 (synthetic) · 0.913 on external helipads (v1: 0.834)" },
+  realds: { t: "Real labelled dataset", s: "partly", what: "Photos of the printed landmarks at flight height.", how: "Recorder saves frames with YOLO pre-labels, which you correct in CVAT or Label Studio. Merge by class name, then retrain.", code: ["scripts/record_dataset.py", "scripts/make_printables.py"], left: "Capture on several days, floors and lights." },
+  fsmatrix: { t: "Failsafe matrix 10/10", s: "done", what: "Every injected fault produces its specified response.", how: "Camera covered or dropped, link loss, low battery, persistent camera fault, featureless floor, false detections, dim light, VIO loss, wind gust.", code: ["scripts/benchmark.py", "gdnav/sim/sim_vehicle.py"], num: "response times 0.05–1.55 s" },
+  three: { t: "3 missions, return-to-start logged", s: "done", what: "Phase 2 exit criterion, in simulation.", how: "Three seeds of investor_demo with GNSS disabled.", code: ["docs/benchmark_results.md"], num: "4/4 landmarks each; return-to-start 0.02–0.07 m" },
+  arena3: { t: "3 arena flights, no GNSS", s: "left", what: "Phase 2 exit criterion on the real drone.", how: "run_px4.py with the mission; measure the landing offset with a tape.", code: ["scripts/run_px4.py", "scripts/analyze_ulog.py"], left: "Hardware." },
+  fstether: { t: "Failsafe demos, tethered", s: "left", what: "Each failsafe shown once on the real drone.", how: "Test cards T2.3: cover the lens, unplug TELEM2, low battery, decoy pad.", code: ["docs/TEST_CARDS.md"], left: "Hardware." },
+  ros: { t: "ROS 2 package + uXRCE-DDS", s: "partly", what: "The mission node and a PX4 vehicle interface over px4_msgs for the Jetson.", how: "v1.17 topics (vehicle_status_v1, vehicle_local_position_v1, ...), Offboard heartbeat at 20 Hz, VehicleCommand for arm and modes.", code: ["jetson/ros2/gdnav_ros/gdnav_ros/px4_ros_vehicle.py", "jetson/ros2/gdnav_ros/gdnav_ros/mission_node.py", "gdnav/bridge/px4_ros_convert.py"], left: "colcon build and run on the Jetson (stub-tested so far)." },
+  viobridge: { t: "VIO → PX4 bridge", s: "partly", what: "cuVSLAM odometry into PX4's estimator.", how: "ENU/FLU → NED/FRD position, quaternion and velocity conversion, published to /fmu/in/vehicle_visual_odometry.", code: ["gdnav/bridge/frames.py", "jetson/ros2/gdnav_ros/gdnav_ros/vio_bridge_node.py"], left: "Run with real topics." },
+  viofusion: { t: "Landmark/VIO fusion", s: "done", what: "Landmark fixes correct the VIO frame before it reaches PX4, which accepts one external-vision stream.", how: "3-DoF Kalman filter (dx, dy, dyaw) whose process noise grows with distance. On a VIO reset it re-anchors to the flight controller's estimate.", code: ["gdnav/bridge/landmark_vio_fusion.py"], num: "estimate error max 0.13 m with VIO + landmarks" },
+  jdocker: { t: "Jetson Docker, launch, boot", s: "partly", what: "Container with the Micro XRCE-DDS Agent, px4_msgs release/1.17, gdnav and the ROS package.", how: "Dockerfile with a base image you pick for your JetPack; launch file starts the agent and mission node.", code: ["docker/Dockerfile.jetson", "docker/docker-compose.jetson.yml", "jetson/ros2/gdnav_ros/launch/gdnav.launch.py"], left: "Build on the Jetson." },
+  trt: { t: "TensorRT FP16/INT8 builder", s: "partly", what: "ONNX → TensorRT engine and a backend benchmark.", how: "trtexec with FP16 (INT8 with a calibration cache); re-measure accuracy after INT8.", code: ["scripts/trt_engine_builder.py"], left: "Run on the Jetson." },
+  viomodel: { t: "Stereo VIO model + tracking loss", s: "done", what: "Phase 3 rehearsed in simulation.", how: "Behavioural cuVSLAM model: scale error, drift that grows with distance, heading drift, tracking loss with a reset counter.", code: ["gdnav/sim/vio.py"], num: "mean reach error 0.07 m on the VIO model" },
+  hover: { t: "Hover drift test", s: "done", what: "Position-hold drift in m/min (plan section 10).", how: "60 s hover over plain floor, measured after 10 s of settling.", code: ["missions/hover_test.yaml", "scripts/benchmark.py"], num: "flow 0.12 · floor map 0.02 · VIO model 0.01 m/min" },
+  cuvslam: { t: "cuVSLAM on the Orin", s: "left", what: "Real stereo VIO feeding PX4.", how: "Isaac ROS Visual SLAM with a RealSense D455 or OAK-D; Kalibr camera–IMU calibration.", code: ["jetson/README.md"], left: "Jetson + stereo camera." },
+  rate30: { t: "≥ 30 FPS detection + ≥ 30 Hz odometry", s: "left", what: "Phase 3 exit criterion.", how: "TensorRT engine plus VIO running together without starving each other.", code: ["scripts/benchmark_perception.py"], left: "Hardware." },
+  driftpct: { t: "Drift as % of distance", s: "left", what: "Phase 3 exit criterion.", how: "Compare the PX4 log and tape measurements over the standard route.", code: ["scripts/analyze_ulog.py"], left: "Hardware." },
+  avoid: { t: "Obstacle avoidance", s: "partly", what: "Keeps the drone off pillars in autonomous and pilot flight.", how: "Reactive planner on a 21-ray forward depth fan (repulsion + tangential slide + slow-down), plus PX4-style Collision Prevention (CP_DIST 1 m) in Position mode.", code: ["gdnav/navigation/local_planner.py", "gdnav/sim/flight_controller.py"], num: "0 collisions in every run", left: "EGO-Planner with stereo depth (optional)." },
+  tnr: { t: "Teach-and-repeat floor map", s: "partly", what: "Drift correction anywhere the floor has texture, without landmarks.", how: "Orthorectify each frame at the estimated pose, then CLAHE + ORB + RANSAC similarity against a mosaic taught on an earlier flight. Map fixes carry the map's own uncertainty.", code: ["gdnav/perception/map_matcher.py", "maps/indoor_arena.npz"], num: "mean reach error 0.07 m with no landmarks (flow alone: 0.57 m)", left: "AnyLoc / DINOv2 descriptors for scenes that change appearance (optional)." },
+  anyloc: { t: "Appearance-robust retrieval (AnyLoc)", s: "next", what: "Optional upgrade to teach and repeat.", how: "DINOv2 / AnyLoc global descriptors to find the right map region when lighting or the scene changes.", code: ["gdnav/perception/map_matcher.py"], left: "Not started; optional." },
+  inject: { t: "Failure-injection campaign", s: "done", what: "Faults on demand in the dashboard and in scripts.", how: "Ten fault types toggled in the simulated vehicle; response times measured from injection to the first failsafe state.", code: ["gdnav/sim/sim_vehicle.py", "gdnav/runner.py"] },
+  bench2: { t: "Benchmark + reports", s: "done", what: "Exit-criteria campaign and per-flight HTML reports.", how: "P0 ×5, P1/P2 ×3, landmark AI on/off, five navigation sources, hover drift, failsafe matrix.", code: ["scripts/benchmark.py", "docs/benchmark_results.md", "gdnav/tools/report.py"] },
+  demo: { t: "Investor demo + video", s: "done", what: "Scripted demo, talk track and a recorded MP4.", how: "Dashboard run, or run_sim.py --record re-encoded to H.264.", code: ["docs/DEMO_SCRIPT.md", "gdnav/tools/video.py"] },
+  demoreal: { t: "Demo repeated in the arena", s: "left", what: "Phase 4 exit criterion on the real drone.", how: "The same mission N times with metrics inside the agreed targets.", code: ["docs/TEST_CARDS.md"], left: "Hardware." },
+  release: { t: "Release tag", s: "partly", what: "Pre-hardware tag v0.3.0-sim (commit 953d17e).", how: "Final tag after the software and parameter freeze.", code: ["docs/YOUR_TODO.md"], left: "Push the tag from your machine." },
+
+  // in-flight loop -----------------------------------------------------------
+  cam: { k: "sensor", t: "Downward camera", s: "done", what: "640×480, 80° field of view, 15 Hz, image top towards the nose.", how: "Simulated by a planar homography from the floor texture with motion blur, vignetting and noise. In Gazebo it is a camera sensor, and on the drone a USB or CSI camera.", code: ["gdnav/sim/camera.py", "gdnav/interface/gz_camera.py"] },
+  inert: { k: "sensor", t: "IMU, optical flow, rangefinder, baro, mag", s: "done", what: "The GPS-free sensor set PX4 fuses (P1–P2).", how: "IMU at 200 Hz, flow and range at 50 Hz. Modelled errors: accelerometer bias random walk, flow scale error ±3 %, magnetometer bias ±3.5° (the main source of drift).", code: ["gdnav/sim/sensors.py"] },
+  stereo: { k: "sensor", t: "Stereo VIO (P3)", s: "partly", what: "RealSense D455 / OAK-D with cuVSLAM on the Jetson, 30 Hz odometry.", how: "Simulated by a behavioural drift model; on the Jetson it arrives as nav_msgs/Odometry.", code: ["gdnav/sim/vio.py", "jetson/ros2/gdnav_ros/gdnav_ros/px4_ros_vehicle.py"], left: "Real camera on the Orin." },
+  depth: { k: "sensor", t: "Forward depth", s: "partly", what: "21 rays over 100°, 6 m, 10 Hz: the obstacle sensor.", how: "Ray-cast against the pillars in the simulator; stereo depth on the real drone.", code: ["gdnav/sim/sensors.py"], left: "Stereo depth source on hardware." },
+  det: { k: "companion", t: "Detectors", s: "done", what: "YOLOv8n landmark model + ArUco tags (colour fallback if no model).", how: "ONNX Runtime with TensorRT, CUDA or CPU execution providers; OpenCV ArUco with sub-pixel corners.", code: ["gdnav/perception/yolo_detector.py", "gdnav/perception/aruco_detector.py", "gdnav/perception/color_detector.py"] },
+  loc: { k: "companion", t: "Localize, associate, confirm", s: "done", what: "Pixel → metres → which mapped landmark → confirmed after 3 frames.", how: "Ground-plane back-projection; association by tag id, or by class with the nearest landmark within 2.5 m; temporal filter; fix σ grows with height and off-centre angle.", code: ["gdnav/perception/landmark_localizer.py", "gdnav/perception/cv_node.py", "gdnav/perception/temporal_filter.py"] },
+  fmap: { k: "companion", t: "Floor-map matcher", s: "partly", what: "Position and heading fixes from the floor texture itself, at 4 Hz.", how: "Orthorectify, CLAHE, ORB features with a ratio test, then a RANSAC similarity against the taught mosaic.", code: ["gdnav/perception/map_matcher.py"] },
+  fixes: { k: "companion", t: "Absolute fixes", s: "done", what: "Drone position (x, y), heading and σ, each implied by a landmark or the map.", how: "Applied as a correction of the estimate at exposure time, which compensates the camera-to-fix latency like EKF2_EV_DELAY.", code: ["gdnav/runner.py"] },
+  vfuse: { k: "companion", t: "Landmark/VIO fusion", s: "done", what: "Corrects the drifting VIO frame with each fix.", how: "3-DoF Kalman filter; the reset counter tells EKF2 about large corrections; re-anchors after tracking loss.", code: ["gdnav/bridge/landmark_vio_fusion.py"] },
+  ekf: { k: "px4", t: "EKF2 estimator", s: "done", what: "Position, velocity and heading without GNSS.", how: "IMU prediction; flow, range, baro, mag and external-vision updates; a χ² innovation gate rejects false fixes. Simulated by an analogue; on the drone this is PX4's EKF2.", code: ["gdnav/sim/estimator.py", "config/px4/gps_denied_flow.params"] },
+  hm: { k: "companion", t: "Health monitor", s: "done", what: "Recommends hold, return or land.", how: "Link age, battery ladder, camera frames and image statistics, eph, geofence, VIO tracking, PX4 failsafe flags.", code: ["gdnav/safety/health_monitor.py"] },
+  planner: { k: "companion", t: "Local planner + geofence", s: "done", what: "Safe velocity around obstacles, setpoints clamped inside the fence.", how: "Repulsive and tangential field on the depth scan; rectangular fence with an altitude ceiling.", code: ["gdnav/navigation/local_planner.py", "gdnav/navigation/geofence.py"] },
+  sm: { k: "companion", t: "Mission state machine", s: "done", what: "Chooses the next Offboard setpoint (position or velocity).", how: "See section 4. Visual servoing in ALIGN and PRECISION_LAND.", code: ["gdnav/navigation/state_machine.py"] },
+  ctrl: { k: "px4", t: "PX4 flight control", s: "done", what: "Offboard, Hold, Land and Position modes, plus failsafes.", how: "Position P → velocity PID → acceleration → thrust and tilt. Offboard needs a setpoint stream; offboard loss (COM_OF_LOSS_T) → Hold.", code: ["gdnav/sim/flight_controller.py", "gdnav/interface/px4_mavsdk.py"] },
+  motors: { k: "px4", t: "Motors", s: "done", what: "Mixer and ESCs.", how: "Inside PX4; in the simulator the thrust and attitude response of the rigid-body model.", code: ["gdnav/sim/quadrotor.py"] },
+
+  // AI pipeline --------------------------------------------------------------
+  render: { k: "ai", t: "Simulator renderer", s: "done", what: "Draws the exact landmarks and floors the drone will see.", how: "Procedural floors, landmark artwork, distractors; homography camera model.", code: ["gdnav/sim/world.py", "gdnav/sim/camera.py"] },
+  synth: { k: "ai", t: "Synthetic scenes + exact labels", s: "done", what: "1,600 train + 300 held-out images.", how: "Domain randomisation; boxes from projecting each landmark's outline.", code: ["scripts/generate_dataset.py"] },
+  cocow: { k: "ai", t: "COCO-pretrained YOLOv8n", s: "done", what: "Open-source starting weights.", how: "Transfer learning converges in a few epochs.", code: ["scripts/download_models.py"] },
+  train1: { k: "ai", t: "Train v1 (30 epochs)", s: "done", what: "Ultralytics training on CPU, imgsz 320.", how: "Mosaic, 180° rotation, HSV and scale augmentation; cosine learning rate.", code: ["scripts/train_landmark_model.py"], num: "mAP50-95 0.893" },
+  mit: { k: "ai", t: "Public data: MIT helipads", s: "done", what: "260 labelled helipad images (rendered, different style).", how: "Fetched from GitHub, mapped to the helipad class, merged.", code: ["scripts/fetch_public_datasets.py", "scripts/merge_datasets.py"] },
+  ft2: { k: "ai", t: "Fine-tune v2 (12 epochs)", s: "done", what: "v1 + synthetic + public set.", how: "Promoted after comparing v1 and v2 on both test sets.", code: ["models/MODEL_CARD.md"], num: "mAP50-95 0.904 · external 0.913" },
+  onnx: { k: "ai", t: "ONNX export", s: "done", what: "One file runs on the laptop, the Pi and the Jetson.", how: "Opset 12, simplified, 12.7 MB; class names stored beside it.", code: ["models/landmarks_yolov8n.onnx", "models/landmarks_yolov8n.json"] },
+  runtime: { k: "ai", t: "Runtime on the drone", s: "partly", what: "ONNX Runtime (CPU) today; TensorRT FP16/INT8 on the Jetson.", how: "Temporal filter, map association and EKF gating protect against false positives in flight.", code: ["gdnav/perception/yolo_detector.py", "scripts/trt_engine_builder.py"], left: "TensorRT engine on the Orin." },
+  realcap: { k: "ai", t: "Real frames + pre-labels", s: "next", what: "Printed landmarks filmed at flight height.", how: "Record, pre-label with the current model, correct by hand.", code: ["scripts/record_dataset.py", "scripts/make_printables.py"], left: "Needs the camera and printed landmarks." },
+  retrain: { k: "ai", t: "Retrain v3 on real images", s: "next", what: "Close the sim-to-real gap.", how: "Merge synthetic + public + real; evaluate on real images only; add every in-flight failure back.", code: ["scripts/merge_datasets.py", "scripts/train_landmark_model.py"], left: "After real data." },
+
+  // states -------------------------------------------------------------------
+  st_idle: { k: "state", t: "IDLE", s: "done", what: "On the ground, waiting for Start, a map click or the pilot.", code: ["gdnav/navigation/state_machine.py"] },
+  st_pre: { k: "state", t: "PREFLIGHT", s: "done", what: "Record home, check battery and estimate, stream setpoints, arm, engage Offboard.", code: ["gdnav/navigation/state_machine.py"] },
+  st_to: { k: "state", t: "TAKEOFF", s: "done", what: "Climb to mission altitude above home.", code: ["gdnav/navigation/state_machine.py"] },
+  st_goto: { k: "state", t: "GOTO_WAYPOINT", s: "done", what: "Fly towards the waypoint on the estimate, through the local planner, nose along the leg.", code: ["gdnav/navigation/state_machine.py"] },
+  st_search: { k: "state", t: "SEARCH_LANDMARK", s: "done", what: "Expanding square around the waypoint until the landmark is confirmed or 25 s pass.", code: ["gdnav/navigation/state_machine.py"] },
+  st_align: { k: "state", t: "ALIGN", s: "done", what: "PI servo over the landmark; hold inside 12 cm for hold_s; re-search if detection is lost.", code: ["gdnav/navigation/state_machine.py"] },
+  st_next: { k: "state", t: "NEXT_WAYPOINT", s: "done", what: "Record the reach error and move to the next waypoint.", code: ["gdnav/navigation/state_machine.py"] },
+  st_rts: { k: "state", t: "RETURN_TO_START", s: "done", what: "Fly home in the local frame; wait for the home pad.", code: ["gdnav/navigation/state_machine.py"] },
+  st_pl: { k: "state", t: "PRECISION_LAND", s: "done", what: "Servo over the helipad while descending.", code: ["gdnav/navigation/state_machine.py"] },
+  st_land: { k: "state", t: "LAND → LANDED", s: "done", what: "PX4 Land; on disarm compute the return-to-start error.", code: ["gdnav/navigation/state_machine.py"] },
+  st_fs: { k: "fail", t: "FAILSAFE_HOLD", s: "done", what: "Any hold-level fault: hold position; resume 1 s after it clears; land after 10 s.", code: ["gdnav/navigation/state_machine.py", "gdnav/safety/health_monitor.py"] },
+  st_man: { k: "op", t: "MANUAL", s: "done", what: "Pilot in Position mode (RC switch, keyboard or gamepad), still GPS-free; companion failsafes defer to the pilot; collision prevention stays on.", code: ["gdnav/sim/flight_controller.py", "gdnav/navigation/state_machine.py"] },
+  st_ug: { k: "op", t: "USER_GOTO → HOLD", s: "done", what: "Click on the map: fly there, then hold; Resume autonomy continues the mission.", code: ["gdnav/navigation/state_machine.py"] },
+};
+
+// ------------------------------------------------------------------ programme map layout
+const PHASES = [
+  ["P0", "Foundations", "week 1", "A simulated drone flies a square under software control."],
+  ["P1", "CV + waypoint POC", "weeks 2–3", "Camera, YOLO, navigation logic and PX4 setpoints as one closed loop."],
+  ["P2", "Own ML + firmware", "weeks 4–5", "Own model, tuned PX4 configuration, GPS-free flights and failsafes."],
+  ["P3", "Jetson Orin", "weeks 6–8", "TensorRT YOLO plus stereo VIO feeding PX4: better precision."],
+  ["P4", "Precision + demo", "weeks 9–10", "Drift correction, obstacle avoidance, metrics and the demo."],
+];
+const LANES = [
+  ["code", "Software & code", "companion + PX4 interfaces", "var(--code)"],
+  ["ai", "AI & data", "datasets, models, runtimes", "var(--ai)"],
+  ["sim", "Simulation & test", "digital twin, SITL, benchmarks", "var(--sim)"],
+  ["hw", "Hardware & flight", "Pixhawk, companion, airframe", "var(--hw)"],
+];
+const PROG = {
+  code: [["repo", "docker"], ["cvnode", "localizer", "statem", "servo"], ["health", "rts", "params", "dash", "boot"], ["ros", "viobridge", "viofusion", "jdocker"], ["avoid", "tnr", "anyloc"]],
+  ai: [["coco"], ["dsv0", "v1"], ["v2", "realds"], ["trt"], ["retrain"]],
+  sim: [["twin", "square"], ["e2e", "gzarena"], ["fsmatrix", "three"], ["viomodel", "hover"], ["inject", "bench2", "demo"]],
+  hw: [["sitl0"], ["bench", "tether", "rate"], ["arena3", "fstether"], ["cuvslam", "rate30", "driftpct"], ["demoreal", "release"]],
+};
+D.retrain = D.retrain; // reused in both the programme and the AI pipeline
+
+// ------------------------------------------------------------------ diagrams: [id, col, row]
+const DG = {
+  "dg-loop": {
+    cols: 6, nodes: [
+      ["cam", 1, 1], ["depth", 1, 2], ["stereo", 1, 3], ["inert", 1, 4],
+      ["det", 2, 1], ["fmap", 2, 2],
+      ["loc", 3, 1], ["fixes", 3, 2], ["vfuse", 3, 3],
+      ["ekf", 4, 3],
+      ["sm", 5, 1], ["planner", 5, 2], ["hm", 5, 3],
+      ["ctrl", 6, 1], ["motors", 6, 2],
+    ],
+    groups: [["Sensors", 1], ["Perception", 2], ["Correction", 3], ["Pixhawk", 4], ["Decide", 5], ["Pixhawk", 6]],
+    edges: [
+      ["cam", "det", "15 Hz"], ["cam", "fmap", "frames", "dash"], ["det", "loc", "boxes"], ["loc", "fixes", "fix"],
+      ["fmap", "fixes", "map fix", "dash"], ["fixes", "ekf", "EV (flow)"], ["fixes", "vfuse", "VIO mode", "dash"],
+      ["stereo", "vfuse", "VIO 30 Hz", "dash"], ["vfuse", "ekf", "EV"], ["inert", "ekf", "IMU · flow"],
+      ["ekf", "hm", "eph"], ["ekf", "sm", "estimate"], ["loc", "sm", "landmark"], ["depth", "planner"],
+      ["planner", "sm", "safe vel"], ["hm", "sm", "hold · RTS · land", "alert"], ["sm", "ctrl", "20 Hz"], ["ctrl", "motors", "thrust"],
+    ],
+  },
+  "dg-ai": {
+    cols: 6, nodes: [
+      ["render", 1, 1], ["synth", 2, 1], ["train1", 3, 1], ["ft2", 4, 1], ["onnx", 5, 1], ["runtime", 6, 1],
+      ["cocow", 2, 2], ["mit", 3, 2], ["realcap", 4, 2], ["retrain", 5, 2],
+    ],
+    edges: [
+      ["render", "synth", "scenes"], ["synth", "train1", "1.9k imgs"], ["cocow", "train1", "init"],
+      ["train1", "ft2", "v1"], ["mit", "ft2", "+200"], ["ft2", "onnx", "v2"], ["onnx", "runtime", "12.7 MB"],
+      ["realcap", "retrain", "labels", "dash"], ["runtime", "realcap", "pre-labels", "dash", "below"], ["retrain", "onnx", "v3", "dash"],
+    ],
+  },
+  "dg-sm": {
+    cols: 6, nodes: [
+      ["st_idle", 1, 1], ["st_pre", 2, 1], ["st_to", 3, 1], ["st_goto", 4, 1], ["st_search", 5, 1], ["st_align", 6, 1],
+      ["st_land", 1, 2], ["st_pl", 2, 2], ["st_rts", 3, 2], ["st_next", 4, 2], ["st_fs", 5, 2],
+      ["st_man", 1, 3], ["st_ug", 2, 3],
+    ],
+    edges: [
+      ["st_idle", "st_pre", "start"], ["st_pre", "st_to", "armed"], ["st_to", "st_goto", "at alt"],
+      ["st_goto", "st_search", "not seen"], ["st_search", "st_align", "confirmed"],
+      ["st_align", "st_next", "aligned", "", "below"], ["st_next", "st_goto", "next WP"], ["st_next", "st_rts", "all done"],
+      ["st_rts", "st_pl", "pad seen"], ["st_pl", "st_land", "< 0.6 m"],
+      ["st_search", "st_fs", "fault", "alert"], ["st_fs", "st_land", "> 10 s", "alert", "below"],
+      ["st_idle", "st_man", "take control", "dash", "left"], ["st_man", "st_ug", "map click", "dash"],
+    ],
+  },
+};
+
+// ------------------------------------------------------------------ verification ladder
+const LADDER = [
+  ["done", "Built-in simulator", "Every capability, every failsafe, against ground truth.", "python scripts/run_sim.py · python scripts/benchmark.py"],
+  ["done", "Replay and reports", "Logged flights reviewed offline in the dashboard.", "python scripts/replay_log.py logs/<file>.jsonl · python scripts/make_report.py --latest"],
+  ["partly", "PX4 SITL, SIH (no Gazebo)", "The real PX4 firmware accepts our Offboard stream and state machine.", "./scripts/px4_sitl.sh sih · python scripts/run_px4.py --mission hello_square"],
+  ["partly", "Gazebo, gz_x500_flow, GPS off", "EKF2 flies on optical flow only: the P0 exit criterion on PX4.", "./scripts/px4_sitl.sh run · python scripts/apply_px4_params.py"],
+  ["partly", "Gazebo arena + downward camera", "YOLO on frames it never trained on drives the mission: P1 in SITL.", "./scripts/px4_sitl.sh gdnav · python scripts/run_px4.py --mission investor_demo --gz-camera"],
+  ["left", "Bench, props off", "Parameters, health without GPS, vision fusion, Offboard on the real Pixhawk.", "python scripts/bench_check.py --url serial:///dev/ttyACM0:921600 --vision-test --offboard-test"],
+  ["left", "Tethered hover, GNSS off", "Stable hover on flow; each failsafe once (test cards T1.4, T2.3).", "docs/CHECKLISTS.md · docs/TEST_CARDS.md"],
+  ["left", "Arena flights", "3 consecutive GPS-free missions; return-to-start measured with a tape.", "sudo ./scripts/deploy_companion.sh · curl -X POST http://<companion>:8081/start"],
+  ["left", "Jetson + stereo VIO", "VIO hold beats flow; 30 FPS detection with 30 Hz odometry.", "ros2 launch gdnav_ros gdnav.launch.py nav_source:=vio"],
+];
+
+// ------------------------------------------------------------------ catalogue
+const CAT = [
+  ["Perception and AI"],
+  ["YOLOv8n landmark detector", "Finds helipad, red pad, blue pad, yellow cross and ArUco tags in each frame", "Ultralytics YOLOv8 nano, COCO transfer learning, 320 px, ONNX; v2 mAP50-95 0.904", "gdnav/perception/yolo_detector.py"],
+  ["ArUco anchors", "Non-ML landmarks with an id and a heading", "OpenCV DICT_4X4_50, sub-pixel corner refinement", "gdnav/perception/aruco_detector.py"],
+  ["Colour segmentation", "CPU-only fallback when no model is present", "HSV thresholds, filled outer contours, rotated-box solidity", "gdnav/perception/color_detector.py"],
+  ["Pixel → metres", "Where a landmark is relative to the drone", "Pinhole back-projection, attitude rotation, ground-plane intersection at rangefinder height", "gdnav/perception/landmark_localizer.py"],
+  ["Association + temporal filter", "Stops single-frame false positives", "Tag id or class-nearest within 2.5 m; 3 consecutive consistent frames", "gdnav/perception/cv_node.py"],
+  ["Lens calibration", "Removes real-lens distortion", "ChArUco board (DICT_5X5_100), OpenCV calibrateCamera, undistortion remap", "scripts/calibrate_camera.py"],
+  ["Synthetic data generation", "Free, exactly labelled training images", "Planar-homography rendering, procedural textures, domain randomisation", "scripts/generate_dataset.py"],
+  ["TensorRT (planned)", "Fast inference on the Orin", "trtexec FP16 / INT8, accuracy re-measured after INT8", "scripts/trt_engine_builder.py"],
+  ["State estimation and drift correction"],
+  ["EKF2 analogue", "Position, velocity and heading without GNSS", "Linear Kalman filters: IMU predict; flow, range, baro, mag, external-vision updates; χ² innovation gates", "gdnav/sim/estimator.py"],
+  ["Latency compensation", "A fix describes the past; apply it correctly", "Correction relative to the estimate at exposure time (as EKF2_EV_DELAY does)", "gdnav/runner.py"],
+  ["Landmark/VIO fusion", "One consistent external-vision stream for PX4", "3-DoF Kalman correction (dx, dy, dyaw), distance-scaled process noise, re-anchoring on VIO reset", "gdnav/bridge/landmark_vio_fusion.py"],
+  ["Teach-and-repeat map matching", "Drift correction without landmarks", "Orthorectification, CLAHE, ORB + ratio test, RANSAC similarity, map uncertainty floor", "gdnav/perception/map_matcher.py"],
+  ["Frame conversion", "ROS ↔ PX4 without toilet-bowling", "ENU/FLU → NED/FRD positions, quaternions and velocities", "gdnav/bridge/frames.py"],
+  ["Guidance, control and safety"],
+  ["Visual servoing", "Centre over a landmark or the landing pad", "PI control on the metric offset, speed-limited", "gdnav/navigation/state_machine.py"],
+  ["Search pattern", "Find a landmark that is not in view", "Expanding square at 1.6 m steps, 25 s timeout", "gdnav/navigation/state_machine.py"],
+  ["Reactive obstacle avoidance", "Fly around pillars", "Repulsive + tangential potential field on a 21-ray depth fan, slow-down near obstacles", "gdnav/navigation/local_planner.py"],
+  ["Collision prevention", "Protect the drone while the pilot flies", "PX4 CP_DIST: limit velocity towards obstacles seen by the distance sensor", "gdnav/sim/flight_controller.py"],
+  ["Cascaded control", "Turn setpoints into thrust and tilt", "PX4 MPC structure: position P → velocity PID → acceleration → attitude", "gdnav/sim/flight_controller.py"],
+  ["Failsafe chain", "Defined response to every fault", "Rule-based health monitor: fault → hold → land, battery ladder, 1 s hysteresis; PX4 failsafes as backup", "gdnav/safety/health_monitor.py"],
+  ["Platforms and interfaces"],
+  ["MAVSDK Offboard", "Fly PX4 SITL or a Pixhawk from the Pi", "MAVSDK-Python (gRPC), VISION_POSITION_ESTIMATE and ODOMETRY", "gdnav/interface/px4_mavsdk.py"],
+  ["ROS 2 + uXRCE-DDS", "Fly PX4 from the Jetson", "px4_msgs release/1.17, versioned topics, VehicleCommand", "jetson/ros2/gdnav_ros/gdnav_ros/px4_ros_vehicle.py"],
+  ["Gazebo export", "Run our arena in PX4 SITL", "SDF world with textured floor; x500_flow + downward camera; gz-transport bridge", "scripts/export_gazebo.py"],
+];
+
+// ------------------------------------------------------------------ results
+const RESULTS = [
+  ["Mean waypoint error (m)", "Lower is better", [["Optical flow only", 0.57, "base"], ["+ landmark AI", 0.09, "good"], ["Floor map, no landmarks", 0.07, "good"], ["Stereo VIO model", 0.07, ""], ["VIO model + landmarks", 0.08, ""]], 0.6],
+  ["Max estimate error (m)", "Worst moment of the flight", [["Optical flow only", 0.86, "base"], ["+ landmark AI", 0.53, "good"], ["Floor map, no landmarks", 0.17, "good"], ["Stereo VIO model", 0.18, ""], ["VIO model + landmarks", 0.13, ""]], 0.9],
+  ["Hover drift (m/min)", "60 s over plain floor", [["Optical flow", 0.12, "base"], ["+ floor map", 0.02, "good"], ["Stereo VIO model", 0.01, ""]], 0.13],
+  ["Landmark model (mAP50-95)", "Higher is better", [["v1 synthetic test", 0.893, "base"], ["v2 synthetic test", 0.904, "good"], ["v1 external helipads", 0.834, "base"], ["v2 external helipads", 0.913, "good"]], 1.0],
+];
+
+// ------------------------------------------------------------------ render
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dot = (s) => `<i style="background:${SCOLOR[s]};${s === "left" ? "border:2px solid var(--left)" : s === "next" ? "border:2px dashed var(--left)" : ""}"></i>`;
+
+function renderProgramme() {
+  const g = $("#prog");
+  let html = `<div class="ph"><b>Track / phase</b><span>plan: 10 weeks</span></div>`;
+  for (const [id, name, wk, goal] of PHASES) html += `<div class="ph"><span>${id} · ${wk}</span><b>${name}</b><div class="goal">${goal}</div></div>`;
+  for (const [lane, name, sub, color] of LANES) {
+    html += `<div class="lane" style="--lane:${color}"><b>${name}</b><span>${sub}</span></div>`;
+    for (const items of PROG[lane]) {
+      html += `<div class="cell">` + items.map((k) => `<button class="chip" type="button" data-k="${k}" aria-label="${esc(D[k].t)}, ${STATUS[D[k].s]}">${dot(D[k].s)}<span>${esc(D[k].t)}</span></button>`).join("") + `</div>`;
+    }
+  }
+  g.innerHTML = html;
+}
+
+function renderDiagram(id) {
+  const spec = DG[id], el = document.getElementById(id);
+  el.style.gridTemplateColumns = `repeat(${spec.cols}, var(--cw))`;
+  el.style.columnGap = "var(--cg)";
+  el.style.rowGap = "var(--rg)";
+  el.style.paddingTop = spec.groups ? "44px" : "26px";
+  let html = `<svg class="edges" aria-hidden="true"></svg>`;
+  for (const [k, c, r] of spec.nodes) {
+    const d = D[k];
+    const fut = d.s === "next" ? " future" : "";
+    html += `<button class="node k-${d.k}${fut}" type="button" data-k="${k}" style="grid-column:${c};grid-row:${r}"><span class="tag">${dot(d.s)}${STATUS[d.s]}</span><b>${esc(d.t)}</b><span>${esc(d.what.length > 92 ? d.what.slice(0, 90).replace(/\s+\S*$/, "") + " …" : d.what)}</span></button>`;
+  }
+  el.innerHTML = html;
+  if (spec.groups) {
+    for (const [label, col] of spec.groups) {
+      const s = document.createElement("div");
+      s.className = "grouplabel";
+      s.textContent = label;
+      s.dataset.col = col;
+      el.appendChild(s);
+    }
+  }
+}
+
+function layoutDiagram(id) {
+  const spec = DG[id], el = document.getElementById(id), svg = $("svg.edges", el);
+  const cs = getComputedStyle(el);
+  const cw = parseFloat(cs.getPropertyValue("--cw")), cg = parseFloat(cs.getPropertyValue("--cg")), rg = parseFloat(cs.getPropertyValue("--rg"));
+  const padL = parseFloat(cs.paddingLeft);
+  const box = el.getBoundingClientRect();
+  const R = {}, rows = {};
+  for (const [k, c, r] of spec.nodes) {
+    const n = $(`[data-k="${k}"]`, el).getBoundingClientRect();
+    R[k] = { x: n.left - box.left, y: n.top - box.top, w: n.width, h: n.height, c, r };
+    rows[r] = rows[r] || { top: 1e9, bot: -1e9 };
+    rows[r].top = Math.min(rows[r].top, R[k].y);
+    rows[r].bot = Math.max(rows[r].bot, R[k].y + R[k].h);
+  }
+  const colL = (c) => padL + (c - 1) * (cw + cg), colR = (c) => colL(c) + cw;
+  const occ = new Set(spec.nodes.map(([, c, r]) => `${c},${r}`));
+  for (const g of el.querySelectorAll(".grouplabel")) { g.style.left = colL(+g.dataset.col) + "px"; g.style.top = "16px"; }
+  const used = {}; // lane offsets so parallel vertical segments do not overlap
+  const lane = (x) => { used[x] = (used[x] || 0) + 1; const n = used[x] - 1; return x + (n === 0 ? 0 : (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 7); };
+  const W = el.scrollWidth, H = el.scrollHeight;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  let out = `<defs>
+    <marker id="${id}-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="marker" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="${id}-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="marker alert" d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+  for (const [a, b, label, style, route] of spec.edges) {
+    const A = R[a], B = R[b];
+    const ay = A.y + A.h / 2, by = B.y + B.h / 2;
+    let pts;
+    if (route === "below") {
+      const yb = rows[A.r].bot + rg / 2, ax = A.x + A.w / 2, bx = B.x + B.w * (B.r > A.r ? 0.75 : 0.5);
+      pts = [[ax, A.y + A.h], [ax, yb], [bx, yb], [bx, B.r > A.r ? B.y : B.y + B.h]];
+    } else if (route === "left") {
+      const lx = Math.min(A.x, B.x) - 20;
+      pts = [[A.x, ay], [lx, ay], [lx, by], [B.x, by]];
+    } else if (A.c === B.c) {
+      if (Math.abs(A.r - B.r) === 1) {
+        const x = A.x + A.w / 2;
+        pts = A.r < B.r ? [[x, A.y + A.h], [x, B.y]] : [[x, A.y], [x, B.y + B.h]];
+      } else {
+        const gx = lane(colR(A.c) + cg / 2);
+        pts = [[A.x + A.w, ay], [gx, ay], [gx, by], [B.x + B.w, by]];
+      }
+    } else {
+      const fwd = B.c > A.c;
+      const sx = fwd ? A.x + A.w : A.x, tx = fwd ? B.x : B.x + B.w;
+      const g1 = fwd ? colR(A.c) + cg / 2 : colL(A.c) - cg / 2;
+      const g2 = fwd ? colL(B.c) - cg / 2 : colR(B.c) + cg / 2;
+      const between = [];
+      for (let c = Math.min(A.c, B.c) + 1; c < Math.max(A.c, B.c); c++) between.push(c);
+      const free = (r) => between.every((c) => !occ.has(`${c},${r}`));
+      if (A.r === B.r && free(A.r)) {
+        pts = [[sx, ay], [tx, by]];
+      } else if (between.length === 0) {
+        const gx = lane(g1);
+        pts = [[sx, ay], [gx, ay], [gx, by], [tx, by]];
+      } else if (free(B.r)) {
+        const gx = lane(g1);
+        pts = [[sx, ay], [gx, ay], [gx, by], [tx, by]];
+      } else if (free(A.r)) {
+        const gx = lane(g2);
+        pts = [[sx, ay], [gx, ay], [gx, by], [tx, by]];
+      } else {
+        const yb = A.r < B.r ? rows[B.r].top - rg / 2 : rows[B.r].bot + rg / 2;
+        const x1 = lane(g1), x2 = lane(g2);
+        pts = [[sx, ay], [x1, ay], [x1, yb], [x2, yb], [x2, by], [tx, by]];
+      }
+    }
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+    const cls = "edge" + (style ? " " + style : "");
+    out += `<path class="${cls}" d="${d}" marker-end="url(#${id}-${style === "alert" ? "b" : "a"})"/>`;
+    if (label) {
+      let best = 0, bi = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+        if (L > best) { best = L; bi = i; }
+      }
+      let mx = (pts[bi][0] + pts[bi - 1][0]) / 2, my = (pts[bi][1] + pts[bi - 1][1]) / 2;
+      if (route === "below") { const ax = pts[1][0], bx = pts[2][0]; mx = ax + Math.sign(bx - ax) * Math.min(64, Math.abs(bx - ax) / 2); my = pts[1][1]; best = Math.abs(bx - ax); }
+      const vertical = Math.abs(pts[bi][0] - pts[bi - 1][0]) < 1;
+      const tw = label.length * 6.3 + 10, cls2 = `elabel${style === "alert" ? " alert" : ""}`;
+      const inGap = vertical && !Object.values(R).some((n) => mx > n.x + 2 && mx < n.x + n.w - 2);
+      if (!vertical) {
+        if (best >= tw) out += `<text class="${cls2}" x="${mx.toFixed(1)}" y="${(my - 5).toFixed(1)}" text-anchor="middle">${esc(label)}</text>`;
+      } else if (inGap) {
+        if (best >= tw) out += `<text class="${cls2}" transform="translate(${(mx - 5).toFixed(1)},${my.toFixed(1)}) rotate(-90)" text-anchor="middle">${esc(label)}</text>`;
+      } else {
+        out += `<text class="${cls2}" x="${(mx - 5).toFixed(1)}" y="${(my + 3).toFixed(1)}" text-anchor="end">${esc(label)}</text>`;
+      }
+    }
+  }
+  svg.innerHTML = out;
+}
+
+function renderLadder() {
+  $("#ladder-list").innerHTML = LADDER.map(([s, t, what, cmd], i) => `<div class="rung ${s}"><div class="num">${i + 1}</div><div class="body"><h3>${esc(t)} <span class="pill ${s}">${STATUS[s]}</span></h3><p class="muted">${esc(what)}</p><div class="cmd">${esc(cmd)}</div></div></div>`).join("");
+}
+
+function renderCatalogue() {
+  let html = `<thead><tr><th>Building block</th><th>What it achieves</th><th>Model / algorithm / process</th><th>Code</th></tr></thead><tbody>`;
+  for (const row of CAT) {
+    if (row.length === 1) { html += `<tr class="group"><td colspan="4">${esc(row[0])}</td></tr>`; continue; }
+    const [a, b, c, f] = row;
+    html += `<tr><td>${esc(a)}</td><td>${esc(b)}</td><td>${esc(c)}</td><td><a href="${REPO}${f}" target="_blank" rel="noopener"><code>${esc(f)}</code></a></td></tr>`;
+  }
+  $("#cat").innerHTML = html + "</tbody>";
+}
+
+function renderResults() {
+  $("#results-grid").innerHTML = RESULTS.map(([title, sub, bars, max]) => `<div class="res"><div><h3>${esc(title)}</h3><span class="muted" style="font-size:12.5px">${esc(sub)}</span></div><div class="bars">` +
+    bars.map(([l, v, c]) => `<div class="bar"><span>${esc(l)}</span><div class="track"><div class="fill ${c}" style="width:${Math.min(100, (v / max) * 100).toFixed(1)}%"></div></div><b>${v}</b></div>`).join("") + `</div></div>`).join("");
+}
+
+// ------------------------------------------------------------------ detail panel
+let selected = null;
+function openDetail(k, src) {
+  const d = D[k];
+  if (!d) return;
+  if (selected) selected.classList.remove("sel");
+  selected = src;
+  if (src) src.classList.add("sel");
+  const kinds = { sensor: "Sensor", companion: "Companion computer", px4: "Pixhawk / PX4", ai: "AI pipeline", state: "Mission state", fail: "Failsafe state", op: "Operator state" };
+  $("#detail-kind").textContent = (kinds[d.k] || "Programme item") + " · " + STATUS[d.s];
+  $("#detail-title").textContent = d.t;
+  let html = `<div><dt>What</dt><dd>${esc(d.what)}</dd></div>`;
+  if (d.how) html += `<div><dt>How: model / algorithm / process</dt><dd>${esc(d.how)}</dd></div>`;
+  if (d.num) html += `<div><dt>Measured</dt><dd>${esc(d.num)}</dd></div>`;
+  if (d.left) html += `<div><dt>What is left</dt><dd>${esc(d.left)}</dd></div>`;
+  if (d.code) html += `<div><dt>Code</dt><dd class="codes"><ul>${d.code.map((f) => `<li><a href="${REPO}${f}" target="_blank" rel="noopener">${esc(f)}</a></li>`).join("")}</ul></dd></div>`;
+  $("#detail-body").innerHTML = html;
+  $("#detail").hidden = false;
+}
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-k]");
+  if (t) openDetail(t.dataset.k, t);
+});
+$("#detail-close").addEventListener("click", () => { $("#detail").hidden = true; if (selected) selected.classList.remove("sel"); selected?.focus(); selected = null; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#detail").hidden) $("#detail-close").click(); });
+
+renderProgramme();
+for (const id of Object.keys(DG)) renderDiagram(id);
+renderLadder();
+renderCatalogue();
+renderResults();
+const relayout = () => { for (const id of Object.keys(DG)) layoutDiagram(id); };
+relayout();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+const ro = new ResizeObserver(() => relayout());
+for (const id of Object.keys(DG)) ro.observe(document.getElementById(id));
+</script>
+
+</body>
+</html>
